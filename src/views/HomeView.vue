@@ -319,10 +319,17 @@ const submitMatch = () => {
   }
 
   // Resolve player objects
-  const winnerPlayers = winnerIds.value.map((id) => players.value.find((p) => p._id === id)).filter(Boolean) as Player[]
-  const loserPlayers = loserIds.value.map((id) => players.value.find((p) => p._id === id)).filter(Boolean) as Player[]
+  const winnerPlayers = winnerIds.value
+    .map((id) => players.value.find((p) => p._id === id))
+    .filter(Boolean) as Player[]
+  const loserPlayers = loserIds.value
+    .map((id) => players.value.find((p) => p._id === id))
+    .filter(Boolean) as Player[]
 
-  if (winnerPlayers.length !== winnerIds.value.length || loserPlayers.length !== loserIds.value.length) {
+  if (
+    winnerPlayers.length !== winnerIds.value.length ||
+    loserPlayers.length !== loserIds.value.length
+  ) {
     formError.value = 'Không tìm thấy thông tin kỳ thủ.'
     return
   }
@@ -340,8 +347,16 @@ const submitMatch = () => {
   const eloChange = 0.25
 
   // Snapshot old Elos for success display
-  const winnersBefore: PlayerEloChange[] = winnerPlayers.map((p) => ({ name: p.name, oldElo: p.current_score, newElo: 0 }))
-  const losersBefore: PlayerEloChange[] = loserPlayers.map((p) => ({ name: p.name, oldElo: p.current_score, newElo: 0 }))
+  const winnersBefore: PlayerEloChange[] = winnerPlayers.map((p) => ({
+    name: p.name,
+    oldElo: p.current_score,
+    newElo: 0,
+  }))
+  const losersBefore: PlayerEloChange[] = loserPlayers.map((p) => ({
+    name: p.name,
+    oldElo: p.current_score,
+    newElo: 0,
+  }))
 
   // Apply Elo changes — each player gets full change (not split)
   winnerPlayers.forEach((p) => {
@@ -358,8 +373,12 @@ const submitMatch = () => {
   })
 
   // Fill newElo after update
-  winnersBefore.forEach((w, i) => { w.newElo = winnerPlayers[i]!.current_score })
-  losersBefore.forEach((l, i) => { l.newElo = loserPlayers[i]!.current_score })
+  winnersBefore.forEach((w, i) => {
+    w.newElo = winnerPlayers[i]!.current_score
+  })
+  losersBefore.forEach((l, i) => {
+    l.newElo = loserPlayers[i]!.current_score
+  })
 
   // Save new Match record
   const newMatch: MatchRecord = {
@@ -474,10 +493,8 @@ const playerMatchHistory = computed(() => {
 })
 
 // Helper to get winner/loser names from a match (handles both formats)
-const getMatchWinnerNames = (m: MatchRecord) =>
-  m.winner_names?.join(' & ') ?? m.winner_name ?? ''
-const getMatchLoserNames = (m: MatchRecord) =>
-  m.loser_names?.join(' & ') ?? m.loser_name ?? ''
+const getMatchWinnerNames = (m: MatchRecord) => m.winner_names?.join(' & ') ?? m.winner_name ?? ''
+const getMatchLoserNames = (m: MatchRecord) => m.loser_names?.join(' & ') ?? m.loser_name ?? ''
 const isPlayerWinner = (m: MatchRecord, playerId: string) =>
   m.winner_ids ? m.winner_ids.includes(playerId) : m.winner_id === playerId
 
@@ -579,9 +596,9 @@ const svgAreaPath = computed(() => {
             <h1
               class="text-sm font-extrabold tracking-tight bg-gradient-to-r from-slate-50 to-slate-200 bg-clip-text text-transparent"
             >
-              V-League ELO
+              BangLang Tennis Club
             </h1>
-            <p class="text-[9px] text-slate-400 font-bold tracking-wide">TENNIS TEAM HUB</p>
+            <p class="text-[9px] text-slate-400 font-bold tracking-wide">Since 2024</p>
           </div>
         </div>
         <!-- Reset DB Action Button -->
@@ -856,7 +873,9 @@ const svgAreaPath = computed(() => {
                     class="w-3.5 h-3.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[8px] font-black flex items-center justify-center shrink-0"
                     >W</span
                   >
-                  <span class="text-xs font-bold text-slate-200">{{ getMatchWinnerNames(match) }}</span>
+                  <span class="text-xs font-bold text-slate-200">{{
+                    getMatchWinnerNames(match)
+                  }}</span>
                   <span class="text-[8px] font-mono text-emerald-400 font-bold">
                     (+{{ match.elo_change.toFixed(2) }})
                   </span>
@@ -867,7 +886,9 @@ const svgAreaPath = computed(() => {
                     class="w-3.5 h-3.5 rounded-full bg-red-500/20 text-red-400 text-[8px] font-black flex items-center justify-center shrink-0"
                     >L</span
                   >
-                  <span class="text-xs font-semibold text-slate-450">{{ getMatchLoserNames(match) }}</span>
+                  <span class="text-xs font-semibold text-slate-450">{{
+                    getMatchLoserNames(match)
+                  }}</span>
                   <span class="text-[8px] font-mono text-red-400 font-bold">
                     (-{{ match.elo_change.toFixed(2) }})
                   </span>
@@ -999,10 +1020,11 @@ const svgAreaPath = computed(() => {
           <div class="flex-1 px-5 space-y-4">
             <!-- Standard Mode vs Match simulator details -->
             <div v-if="!matchSuccessData" class="space-y-5">
-
               <!-- Match Type Indicator (auto-detected) -->
               <div class="flex items-center justify-between">
-                <span class="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Loại trận</span>
+                <span class="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider"
+                  >Loại trận</span
+                >
                 <span
                   :class="[
                     'text-[9px] font-bold px-2.5 py-1 rounded-full border transition-all',
@@ -1017,9 +1039,13 @@ const svgAreaPath = computed(() => {
 
               <!-- Select Winners -->
               <div>
-                <label class="block text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-2">
+                <label
+                  class="block text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-2"
+                >
                   Đội Thắng
-                  <span class="ml-1 text-slate-600 normal-case font-semibold">(chọn 1–2 người)</span>
+                  <span class="ml-1 text-slate-600 normal-case font-semibold"
+                    >(chọn 1–2 người)</span
+                  >
                 </label>
                 <div class="flex flex-wrap gap-2">
                   <button
@@ -1037,15 +1063,40 @@ const svgAreaPath = computed(() => {
                     ]"
                   >
                     <span
-                      :class="['w-4 h-4 rounded-full bg-gradient-to-br shrink-0 flex items-center justify-center text-[7px] font-black text-white uppercase', getAvatarGradient(p.name)]"
-                    >{{ getInitials(p.name).slice(0,1) }}</span>
+                      :class="[
+                        'w-4 h-4 rounded-full bg-gradient-to-br shrink-0 flex items-center justify-center text-[7px] font-black text-white uppercase',
+                        getAvatarGradient(p.name),
+                      ]"
+                      >{{ getInitials(p.name).slice(0, 1) }}</span
+                    >
                     <span class="truncate max-w-[90px]">{{ p.name.split(' ').pop() }}</span>
-                    <span class="font-mono text-[8px] text-slate-500 shrink-0">{{ p.current_score.toFixed(1) }}</span>
-                    <svg v-if="winnerIds.includes(p._id)" class="w-3 h-3 fill-current text-emerald-400 shrink-0" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                    <span class="font-mono text-[8px] text-slate-500 shrink-0">{{
+                      p.current_score.toFixed(1)
+                    }}</span>
+                    <svg
+                      v-if="winnerIds.includes(p._id)"
+                      class="w-3 h-3 fill-current text-emerald-400 shrink-0"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                    </svg>
                   </button>
                 </div>
-                <p v-if="winnerIds.length > 0" class="mt-1.5 text-[9px] text-emerald-400 font-semibold">
-                  ✓ Đã chọn: {{ winnerIds.map(id => players.find(p => p._id === id)?.name.split(' ').pop()).join(' & ') }}
+                <p
+                  v-if="winnerIds.length > 0"
+                  class="mt-1.5 text-[9px] text-emerald-400 font-semibold"
+                >
+                  ✓ Đã chọn:
+                  {{
+                    winnerIds
+                      .map((id) =>
+                        players
+                          .find((p) => p._id === id)
+                          ?.name.split(' ')
+                          .pop(),
+                      )
+                      .join(' & ')
+                  }}
                 </p>
               </div>
 
@@ -1058,9 +1109,13 @@ const svgAreaPath = computed(() => {
 
               <!-- Select Losers -->
               <div>
-                <label class="block text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-2">
+                <label
+                  class="block text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-2"
+                >
                   Đội Thua
-                  <span class="ml-1 text-slate-600 normal-case font-semibold">(chọn 1–2 người)</span>
+                  <span class="ml-1 text-slate-600 normal-case font-semibold"
+                    >(chọn 1–2 người)</span
+                  >
                 </label>
                 <div class="flex flex-wrap gap-2">
                   <button
@@ -1078,15 +1133,37 @@ const svgAreaPath = computed(() => {
                     ]"
                   >
                     <span
-                      :class="['w-4 h-4 rounded-full bg-gradient-to-br shrink-0 flex items-center justify-center text-[7px] font-black text-white uppercase', getAvatarGradient(p.name)]"
-                    >{{ getInitials(p.name).slice(0,1) }}</span>
+                      :class="[
+                        'w-4 h-4 rounded-full bg-gradient-to-br shrink-0 flex items-center justify-center text-[7px] font-black text-white uppercase',
+                        getAvatarGradient(p.name),
+                      ]"
+                      >{{ getInitials(p.name).slice(0, 1) }}</span
+                    >
                     <span class="truncate max-w-[90px]">{{ p.name.split(' ').pop() }}</span>
-                    <span class="font-mono text-[8px] text-slate-500 shrink-0">{{ p.current_score.toFixed(1) }}</span>
-                    <svg v-if="loserIds.includes(p._id)" class="w-3 h-3 fill-current text-red-400 shrink-0" viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                    <span class="font-mono text-[8px] text-slate-500 shrink-0">{{
+                      p.current_score.toFixed(1)
+                    }}</span>
+                    <svg
+                      v-if="loserIds.includes(p._id)"
+                      class="w-3 h-3 fill-current text-red-400 shrink-0"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
+                    </svg>
                   </button>
                 </div>
                 <p v-if="loserIds.length > 0" class="mt-1.5 text-[9px] text-red-400 font-semibold">
-                  ✓ Đã chọn: {{ loserIds.map(id => players.find(p => p._id === id)?.name.split(' ').pop()).join(' & ') }}
+                  ✓ Đã chọn:
+                  {{
+                    loserIds
+                      .map((id) =>
+                        players
+                          .find((p) => p._id === id)
+                          ?.name.split(' ')
+                          .pop(),
+                      )
+                      .join(' & ')
+                  }}
                 </p>
               </div>
 
@@ -1140,7 +1217,12 @@ const svgAreaPath = computed(() => {
               <div
                 class="w-14 h-14 bg-emerald-500/15 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto text-emerald-400"
               >
-                <svg class="w-7 h-7 stroke-current" fill="none" stroke-width="3" viewBox="0 0 24 24">
+                <svg
+                  class="w-7 h-7 stroke-current"
+                  fill="none"
+                  stroke-width="3"
+                  viewBox="0 0 24 24"
+                >
                   <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
               </div>
@@ -1161,14 +1243,21 @@ const svgAreaPath = computed(() => {
                   class="flex justify-between items-center py-2 border-b border-slate-900 last:border-0"
                 >
                   <div class="flex items-center space-x-1.5">
-                    <span class="inline-block px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[8px] font-extrabold uppercase">W</span>
-                    <span class="text-xs font-bold text-slate-200">{{ w.name.split(' ').pop() }}</span>
+                    <span
+                      class="inline-block px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[8px] font-extrabold uppercase"
+                      >W</span
+                    >
+                    <span class="text-xs font-bold text-slate-200">{{
+                      w.name.split(' ').pop()
+                    }}</span>
                   </div>
                   <div class="font-mono text-xs flex items-center space-x-1">
                     <span class="text-slate-500 text-[10px]">{{ w.oldElo.toFixed(2) }}</span>
                     <span class="text-slate-400">→</span>
                     <span class="text-lime-400 font-bold">{{ w.newElo.toFixed(2) }}</span>
-                    <span class="text-emerald-400 text-[9px] font-bold">(+{{ matchSuccessData.change.toFixed(2) }})</span>
+                    <span class="text-emerald-400 text-[9px] font-bold"
+                      >(+{{ matchSuccessData.change.toFixed(2) }})</span
+                    >
                   </div>
                 </div>
 
@@ -1186,14 +1275,21 @@ const svgAreaPath = computed(() => {
                   class="flex justify-between items-center py-2 border-b border-slate-900 last:border-0"
                 >
                   <div class="flex items-center space-x-1.5">
-                    <span class="inline-block px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 text-[8px] font-extrabold uppercase">L</span>
-                    <span class="text-xs font-semibold text-slate-400">{{ l.name.split(' ').pop() }}</span>
+                    <span
+                      class="inline-block px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 text-[8px] font-extrabold uppercase"
+                      >L</span
+                    >
+                    <span class="text-xs font-semibold text-slate-400">{{
+                      l.name.split(' ').pop()
+                    }}</span>
                   </div>
                   <div class="font-mono text-xs flex items-center space-x-1">
                     <span class="text-slate-500 text-[10px]">{{ l.oldElo.toFixed(2) }}</span>
                     <span class="text-slate-400">→</span>
                     <span class="text-red-400 font-bold">{{ l.newElo.toFixed(2) }}</span>
-                    <span class="text-red-400 text-[9px] font-bold">(-{{ matchSuccessData.change.toFixed(2) }})</span>
+                    <span class="text-red-400 text-[9px] font-bold"
+                      >(-{{ matchSuccessData.change.toFixed(2) }})</span
+                    >
                   </div>
                 </div>
               </div>
