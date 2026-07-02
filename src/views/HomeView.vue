@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
+const route = useRoute()
+const router = useRouter()
 
 // --- TS Interfaces ---
 interface Player {
@@ -214,6 +218,12 @@ const hoveredChartPoint = ref<{ x: number; y: number; val: number; idx: number }
 
 // --- Initialization ---
 onMounted(() => {
+  if (route.query.tab === 'matches') {
+    currentTab.value = 'matches'
+  } else if (route.query.tab === 'leaderboard') {
+    currentTab.value = 'leaderboard'
+  }
+
   const cachedPlayers = localStorage.getItem(LOCAL_STORAGE_PLAYERS_KEY)
   const cachedMatches = localStorage.getItem(LOCAL_STORAGE_MATCHES_KEY)
 
@@ -1101,6 +1111,28 @@ const svgAreaPath = computed(() => {
           </svg>
         </button>
 
+        <!-- Tuyển thủ Tab trigger -->
+        <button
+          @click="router.push('/players')"
+          class="flex flex-col items-center space-y-1 transition-all focus:outline-none text-slate-500 hover:text-slate-300"
+        >
+          <!-- Users Icon -->
+          <svg
+            class="w-4.5 h-4.5"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.109A3.318 3.318 0 0112 22.5c-1.258 0-2.4-.698-3-1.847V19.13M8.25 12h7.5m-7.5 3H12"
+            />
+          </svg>
+          <span class="text-[9px] font-extrabold uppercase tracking-wider">Tuyển thủ</span>
+        </button>
+
         <!-- Match History Tab trigger -->
         <button
           @click="currentTab = 'matches'"
@@ -1871,7 +1903,7 @@ const svgAreaPath = computed(() => {
               <!-- Player Entries Grid -->
               <div class="space-y-2">
                 <div
-                  v-for="(entry, idx) in batchEntries"
+                  v-for="entry in batchEntries"
                   :key="entry.player_id"
                   :class="[
                     'border rounded-xl p-3 transition-all',
@@ -1920,7 +1952,7 @@ const svgAreaPath = computed(() => {
                         <span class="text-[8px] font-bold text-slate-400 uppercase">Thắng</span>
                         <div class="flex items-center bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
                           <button
-                            @click="batchEntries[idx].wins = Math.max(0, batchEntries[idx].wins - 1)"
+                            @click="entry.wins = Math.max(0, entry.wins - 1)"
                             class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all text-sm font-bold cursor-pointer"
                           >−</button>
                           <span
@@ -1930,7 +1962,7 @@ const svgAreaPath = computed(() => {
                             ]"
                           >{{ entry.wins }}</span>
                           <button
-                            @click="batchEntries[idx].wins = Math.min(2, batchEntries[idx].wins + 1)"
+                            @click="entry.wins = Math.min(2, entry.wins + 1)"
                             class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all text-sm font-bold cursor-pointer"
                           >+</button>
                         </div>
@@ -1947,7 +1979,7 @@ const svgAreaPath = computed(() => {
                       <label class="flex items-center space-x-1.5 cursor-pointer group">
                         <span class="text-[8px] text-slate-500 group-hover:text-slate-300 transition-colors font-bold uppercase">Off</span>
                         <div
-                          @click="batchEntries[idx].offline = !batchEntries[idx].offline; if(batchEntries[idx].offline) batchEntries[idx].wins = 0"
+                          @click="entry.offline = !entry.offline; if(entry.offline) entry.wins = 0"
                           :class="[
                             'w-8 h-4 rounded-full border transition-all cursor-pointer relative',
                             entry.offline
