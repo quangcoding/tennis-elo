@@ -462,6 +462,11 @@ const closeBatchModal = () => {
   batchError.value = ''
 }
 
+const openAddMatchFromBatch = () => {
+  closeBatchModal()
+  showAddMatchModal.value = true
+}
+
 const getQuarter = (dateStr: string): string => {
   const d = new Date(dateStr)
   const q = Math.ceil((d.getMonth() + 1) / 3)
@@ -936,7 +941,7 @@ const svgAreaPath = computed(() => {
             class="bg-slate-900/60 border border-slate-800/60 rounded-xl p-3 flex items-center justify-between cursor-pointer hover:border-slate-700/80 active:bg-slate-800/30 transition-all"
           >
             <!-- Rank & Avatar & Info -->
-            <div class="flex items-center space-x-3 min-w-0">
+            <div class="flex items-center space-x-2 min-w-0">
               <!-- Rank badge/number -->
               <div class="w-6 text-center font-extrabold text-xs shrink-0">
                 <span v-if="getPlayerRank(player._id) === 1" class="text-lg">🥇</span>
@@ -956,7 +961,7 @@ const svgAreaPath = computed(() => {
               </div>
 
               <!-- Name & Matches -->
-              <div class="min-w-0">
+              <div class="min-w-0 pl-1">
                 <h4 class="text-xs font-bold text-slate-200 truncate pr-1">{{ player.name }}</h4>
                 <p class="text-[9px] text-slate-400 mt-0.5">
                   {{ player.matches_played }} trận • Tỷ lệ thắng:
@@ -1102,7 +1107,7 @@ const svgAreaPath = computed(() => {
 
         <!-- Dynamic Action Plus Button (FAB) -->
         <button
-          @click="showAddMatchModal = true"
+          @click="openBatchModal"
           class="w-11 h-11 rounded-full bg-gradient-to-tr from-lime-400 to-emerald-500 text-slate-950 flex items-center justify-center shadow-lg shadow-lime-500/20 -translate-y-4 hover:scale-110 active:scale-95 transition-all focus:outline-none cursor-pointer"
         >
           <!-- Plus Icon -->
@@ -1841,6 +1846,20 @@ const svgAreaPath = computed(() => {
 
             <!-- INPUT FORM VIEW -->
             <div v-else class="space-y-4">
+              <!-- Link/Button to Switch to Single Match Recording -->
+              <div class="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                <span class="text-[10px] text-slate-400 font-semibold">Ghi nhận riêng lẻ từng trận đấu?</span>
+                <button
+                  @click="openAddMatchFromBatch"
+                  class="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-lime-500/10 hover:bg-lime-500/20 text-lime-400 text-[9px] font-extrabold transition-all border border-lime-500/25 cursor-pointer uppercase tracking-wider"
+                >
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  <span>Ghi nhận trận đấu</span>
+                </button>
+              </div>
+
               <!-- Date & Note fields -->
               <div class="grid grid-cols-2 gap-3">
                 <div>
