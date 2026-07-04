@@ -320,108 +320,113 @@ const formatRelativeDate = (isoString: string) => {
 
 // Elo formulas and Match registration (supports singles & doubles)
 const submitMatch = () => {
-  formError.value = ''
+  // TODO: Implement match submission logic
+  formError.value = `Tính năng đang phát triển, vui lòng donate cho lập trình viên để tăng tốc độ!`
+  return
 
-  if (winnerIds.value.length === 0 || loserIds.value.length === 0) {
-    formError.value = 'Vui lòng chọn ít nhất 1 người thắng và 1 người thua.'
-    return
-  }
 
-  // Check team sizes match (1v1 or 2v2 only)
-  if (winnerIds.value.length !== loserIds.value.length) {
-    formError.value = `Số người mỗi đội phải bằng nhau (hiện tại: ${winnerIds.value.length} thắng vs ${loserIds.value.length} thua).`
-    return
-  }
+  // formError.value = ''
 
-  // Check overlap between teams
-  const overlap = winnerIds.value.some((id) => loserIds.value.includes(id))
-  if (overlap) {
-    formError.value = 'Cùng 1 người không thể vừa thắng vừa thua.'
-    return
-  }
+  // if (winnerIds.value.length === 0 || loserIds.value.length === 0) {
+  //   formError.value = 'Vui lòng chọn ít nhất 1 người thắng và 1 người thua.'
+  //   return
+  // }
 
-  // Resolve player objects
-  const winnerPlayers = winnerIds.value
-    .map((id) => players.value.find((p) => p._id === id))
-    .filter(Boolean) as Player[]
-  const loserPlayers = loserIds.value
-    .map((id) => players.value.find((p) => p._id === id))
-    .filter(Boolean) as Player[]
+  // // Check team sizes match (1v1 or 2v2 only)
+  // if (winnerIds.value.length !== loserIds.value.length) {
+  //   formError.value = `Số người mỗi đội phải bằng nhau (hiện tại: ${winnerIds.value.length} thắng vs ${loserIds.value.length} thua).`
+  //   return
+  // }
 
-  if (
-    winnerPlayers.length !== winnerIds.value.length ||
-    loserPlayers.length !== loserIds.value.length
-  ) {
-    formError.value = 'Không tìm thấy thông tin kỳ thủ.'
-    return
-  }
+  // // Check overlap between teams
+  // const overlap = winnerIds.value.some((id) => loserIds.value.includes(id))
+  // if (overlap) {
+  //   formError.value = 'Cùng 1 người không thể vừa thắng vừa thua.'
+  //   return
+  // }
 
-  // // --- Thuật toán Elo xác suất (tạm comment) ---
-  // const avgWinnerElo = winnerPlayers.reduce((s, p) => s + p.current_score, 0) / winnerPlayers.length
-  // const avgLoserElo = loserPlayers.reduce((s, p) => s + p.current_score, 0) / loserPlayers.length
-  // const ratingDiff = avgLoserElo - avgWinnerElo
-  // const expectedWinner = 1 / (1 + Math.pow(10, ratingDiff / 2.0))
-  // const K = 0.2
-  // const rawChange = K * (1 - expectedWinner)
-  // const eloChange = Math.max(0.02, Math.round(rawChange * 100) / 100)
+  // // Resolve player objects
+  // const winnerPlayers = winnerIds.value
+  //   .map((id) => players.value.find((p) => p._id === id))
+  //   .filter(Boolean) as Player[]
+  // const loserPlayers = loserIds.value
+  //   .map((id) => players.value.find((p) => p._id === id))
+  //   .filter(Boolean) as Player[]
 
-  // Thuật toán tạm: thắng +0.25, thua -0.25
-  const eloChange = 0.25
+  // if (
+  //   winnerPlayers.length !== winnerIds.value.length ||
+  //   loserPlayers.length !== loserIds.value.length
+  // ) {
+  //   formError.value = 'Không tìm thấy thông tin kỳ thủ.'
+  //   return
+  // }
 
-  // Snapshot old Elos for success display
-  const winnersBefore: PlayerEloChange[] = winnerPlayers.map((p) => ({
-    name: p.name,
-    oldElo: p.current_score,
-    newElo: 0,
-  }))
-  const losersBefore: PlayerEloChange[] = loserPlayers.map((p) => ({
-    name: p.name,
-    oldElo: p.current_score,
-    newElo: 0,
-  }))
+  // // // --- Thuật toán Elo xác suất (tạm comment) ---
+  // // const avgWinnerElo = winnerPlayers.reduce((s, p) => s + p.current_score, 0) / winnerPlayers.length
+  // // const avgLoserElo = loserPlayers.reduce((s, p) => s + p.current_score, 0) / loserPlayers.length
+  // // const ratingDiff = avgLoserElo - avgWinnerElo
+  // // const expectedWinner = 1 / (1 + Math.pow(10, ratingDiff / 2.0))
+  // // const K = 0.2
+  // // const rawChange = K * (1 - expectedWinner)
+  // // const eloChange = Math.max(0.02, Math.round(rawChange * 100) / 100)
 
-  // Apply Elo changes — each player gets full change (not split)
-  winnerPlayers.forEach((p) => {
-    p.current_score = Math.round((p.current_score + eloChange) * 100) / 100
-    p.matches_played += 1
-    p.wins += 1
-    p.history.push(p.current_score)
-  })
-  loserPlayers.forEach((p) => {
-    p.current_score = Math.round(Math.max(5.0, p.current_score - eloChange) * 100) / 100
-    p.matches_played += 1
-    p.losses += 1
-    p.history.push(p.current_score)
-  })
+  // // Thuật toán tạm: thắng +0.25, thua -0.25
+  // const eloChange = 0.25
 
-  // Fill newElo after update
-  winnersBefore.forEach((w, i) => {
-    w.newElo = winnerPlayers[i]!.current_score
-  })
-  losersBefore.forEach((l, i) => {
-    l.newElo = loserPlayers[i]!.current_score
-  })
+  // // Snapshot old Elos for success display
+  // const winnersBefore: PlayerEloChange[] = winnerPlayers.map((p) => ({
+  //   name: p.name,
+  //   oldElo: p.current_score,
+  //   newElo: 0,
+  // }))
+  // const losersBefore: PlayerEloChange[] = loserPlayers.map((p) => ({
+  //   name: p.name,
+  //   oldElo: p.current_score,
+  //   newElo: 0,
+  // }))
 
-  // Save new Match record
-  const newMatch: MatchRecord = {
-    id: 'm_' + Date.now(),
-    winner_ids: winnerPlayers.map((p) => p._id),
-    winner_names: winnerPlayers.map((p) => p.name),
-    loser_ids: loserPlayers.map((p) => p._id),
-    loser_names: loserPlayers.map((p) => p.name),
-    score: setScore.value,
-    elo_change: eloChange,
-    played_at: new Date().toISOString(),
-  }
+  // // Apply Elo changes — each player gets full change (not split)
+  // winnerPlayers.forEach((p) => {
+  //   p.current_score = Math.round((p.current_score + eloChange) * 100) / 100
+  //   p.matches_played += 1
+  //   p.wins += 1
+  //   p.history.push(p.current_score)
+  // })
+  // loserPlayers.forEach((p) => {
+  //   p.current_score = Math.round(Math.max(5.0, p.current_score - eloChange) * 100) / 100
+  //   p.matches_played += 1
+  //   p.losses += 1
+  //   p.history.push(p.current_score)
+  // })
 
-  matches.value.unshift(newMatch)
-  saveToLocalStorage()
+  // // Fill newElo after update
+  // winnersBefore.forEach((w, i) => {
+  //   w.newElo = winnerPlayers[i]!.current_score
+  // })
+  // losersBefore.forEach((l, i) => {
+  //   l.newElo = loserPlayers[i]!.current_score
+  // })
 
-  matchSuccessData.value = { winners: winnersBefore, losers: losersBefore, change: eloChange }
+  // // Save new Match record
+  // const newMatch: MatchRecord = {
+  //   id: 'm_' + Date.now(),
+  //   winner_ids: winnerPlayers.map((p) => p._id),
+  //   winner_names: winnerPlayers.map((p) => p.name),
+  //   loser_ids: loserPlayers.map((p) => p._id),
+  //   loser_names: loserPlayers.map((p) => p.name),
+  //   score: setScore.value,
+  //   elo_change: eloChange,
+  //   played_at: new Date().toISOString(),
+  // }
 
-  // Reset selections
-  winnerIds.value = []
-  loserIds.value = []
+  // matches.value.unshift(newMatch)
+  // saveToLocalStorage()
+
+  // matchSuccessData.value = { winners: winnersBefore, losers: losersBefore, change: eloChange }
+
+  // // Reset selections
+  // winnerIds.value = []
+  // loserIds.value = []
 }
 
 const closeAddMatchModal = () => {
@@ -867,11 +872,11 @@ const svgAreaPath = computed(() => {
                   { id: 'mid', label: 'Trung' },
                   { id: 'low', label: 'F0' },
                 ]" :key="grp.id" @click="filterGroup = grp.id as any" :class="[
-                    'text-[9px] font-bold px-2.5 py-1.5 rounded-lg border transition-all shrink-0',
-                    filterGroup === grp.id
-                      ? 'bg-lime-500 border-lime-500 text-slate-950 shadow-md shadow-lime-500/10'
-                      : 'bg-slate-950 border-slate-800/60 text-slate-400 hover:text-slate-200',
-                  ]">
+                  'text-[9px] font-bold px-2.5 py-1.5 rounded-lg border transition-all shrink-0',
+                  filterGroup === grp.id
+                    ? 'bg-lime-500 border-lime-500 text-slate-950 shadow-md shadow-lime-500/10'
+                    : 'bg-slate-950 border-slate-800/60 text-slate-400 hover:text-slate-200',
+                ]">
                   {{ grp.label }}
                 </button>
               </div>
@@ -988,7 +993,7 @@ const svgAreaPath = computed(() => {
                     class="w-3.5 h-3.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[8px] font-black flex items-center justify-center shrink-0">W</span>
                   <span class="text-xs font-bold text-slate-200">{{
                     getMatchWinnerNames(match)
-                    }}</span>
+                  }}</span>
                   <span class="text-[8px] font-mono text-emerald-400 font-bold">
                     (+{{ match.elo_change.toFixed(2) }})
                   </span>
@@ -999,7 +1004,7 @@ const svgAreaPath = computed(() => {
                     class="w-3.5 h-3.5 rounded-full bg-red-500/20 text-red-400 text-[8px] font-black flex items-center justify-center shrink-0">L</span>
                   <span class="text-xs font-semibold text-slate-450">{{
                     getMatchLoserNames(match)
-                    }}</span>
+                  }}</span>
                   <span class="text-[8px] font-mono text-red-400 font-bold">
                     (-{{ match.elo_change.toFixed(2) }})
                   </span>
@@ -1014,7 +1019,7 @@ const svgAreaPath = computed(() => {
                 </span>
                 <span class="text-[8px] text-slate-500 font-bold">{{
                   formatRelativeDate(match.played_at)
-                  }}</span>
+                }}</span>
               </div>
             </div>
           </div>
@@ -1135,7 +1140,7 @@ const svgAreaPath = computed(() => {
                     <span class="truncate max-w-[90px]">{{ p.name.split(' ').pop() }}</span>
                     <span class="font-mono text-[8px] text-slate-500 shrink-0">{{
                       p.current_score.toFixed(1)
-                      }}</span>
+                    }}</span>
                     <svg v-if="winnerIds.includes(p._id)" class="w-3 h-3 fill-current text-emerald-400 shrink-0"
                       viewBox="0 0 24 24">
                       <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
@@ -1187,7 +1192,7 @@ const svgAreaPath = computed(() => {
                     <span class="truncate max-w-[90px]">{{ p.name.split(' ').pop() }}</span>
                     <span class="font-mono text-[8px] text-slate-500 shrink-0">{{
                       p.current_score.toFixed(1)
-                      }}</span>
+                    }}</span>
                     <svg v-if="loserIds.includes(p._id)" class="w-3 h-3 fill-current text-red-400 shrink-0"
                       viewBox="0 0 24 24">
                       <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
@@ -1269,14 +1274,14 @@ const svgAreaPath = computed(() => {
                       class="inline-block px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[8px] font-extrabold uppercase">W</span>
                     <span class="text-xs font-bold text-slate-200">{{
                       w.name.split(' ').pop()
-                      }}</span>
+                    }}</span>
                   </div>
                   <div class="font-mono text-xs flex items-center space-x-1">
                     <span class="text-slate-500 text-[10px]">{{ w.oldElo.toFixed(2) }}</span>
                     <span class="text-slate-400">→</span>
                     <span class="text-lime-400 font-bold">{{ w.newElo.toFixed(2) }}</span>
                     <span class="text-emerald-400 text-[9px] font-bold">(+{{ matchSuccessData.change.toFixed(2)
-                      }})</span>
+                    }})</span>
                   </div>
                 </div>
 
@@ -1295,7 +1300,7 @@ const svgAreaPath = computed(() => {
                       class="inline-block px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 text-[8px] font-extrabold uppercase">L</span>
                     <span class="text-xs font-semibold text-slate-400">{{
                       l.name.split(' ').pop()
-                      }}</span>
+                    }}</span>
                   </div>
                   <div class="font-mono text-xs flex items-center space-x-1">
                     <span class="text-slate-500 text-[10px]">{{ l.oldElo.toFixed(2) }}</span>
@@ -1675,7 +1680,7 @@ const svgAreaPath = computed(() => {
                         </p>
                         <p class="text-[8px] font-mono">
                           <span class="text-slate-500">Elo: {{players.find(p => p._id ===
-                            entry.player_id)?.current_score.toFixed(2) }}</span>
+                            entry.player_id)?.current_score.toFixed(2)}}</span>
                           <!-- Preview delta -->
                           <span :class="[
                             'ml-1 font-bold transition-all',
