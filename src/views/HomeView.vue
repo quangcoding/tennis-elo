@@ -219,29 +219,43 @@ const toggleLoser = (id: string) => {
 const hoveredChartPoint = ref<{ x: number; y: number; val: number; idx: number } | null>(null)
 
 // --- Initialization ---
-onMounted(() => {
+onMounted(async () => {
   if (route.query.tab === 'matches') {
     currentTab.value = 'matches'
   } else if (route.query.tab === 'leaderboard') {
     currentTab.value = 'leaderboard'
   }
 
-  const cachedPlayers = localStorage.getItem(LOCAL_STORAGE_PLAYERS_KEY)
-  const cachedMatches = localStorage.getItem(LOCAL_STORAGE_MATCHES_KEY)
+  // get from supabase
+  const { data, error } = await supabase
+    .from('players')
+    .select('*')
 
-  if (cachedPlayers) {
-    players.value = JSON.parse(cachedPlayers)
-  } else {
+  if (error) {
+    console.log(error)
     players.value = [...DEFAULT_PLAYERS]
     localStorage.setItem(LOCAL_STORAGE_PLAYERS_KEY, JSON.stringify(DEFAULT_PLAYERS))
+  } else {
+    players.value = data as Player[]
   }
 
-  if (cachedMatches) {
-    matches.value = JSON.parse(cachedMatches)
-  } else {
-    matches.value = [...DEFAULT_MATCHES]
-    localStorage.setItem(LOCAL_STORAGE_MATCHES_KEY, JSON.stringify(DEFAULT_MATCHES))
-  }
+
+  // const cachedPlayers = localStorage.getItem(LOCAL_STORAGE_PLAYERS_KEY)
+  // const cachedMatches = localStorage.getItem(LOCAL_STORAGE_MATCHES_KEY)
+
+  // if (cachedPlayers) {
+  //   players.value = JSON.parse(cachedPlayers)
+  // } else {
+  //   players.value = [...DEFAULT_PLAYERS]
+  //   localStorage.setItem(LOCAL_STORAGE_PLAYERS_KEY, JSON.stringify(DEFAULT_PLAYERS))
+  // }
+
+  // if (cachedMatches) {
+  //   matches.value = JSON.parse(cachedMatches)
+  // } else {
+  //   matches.value = [...DEFAULT_MATCHES]
+  //   localStorage.setItem(LOCAL_STORAGE_MATCHES_KEY, JSON.stringify(DEFAULT_MATCHES))
+  // }
 })
 
 // --- Actions & Methods ---
