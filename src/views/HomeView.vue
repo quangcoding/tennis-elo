@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { supabase } from '@/utils/supabase'
 
 const route = useRoute()
 const router = useRouter()
@@ -244,9 +245,33 @@ onMounted(() => {
 })
 
 // --- Actions & Methods ---
-const saveToLocalStorage = () => {
+const saveToLocalStorage = async () => {
   localStorage.setItem(LOCAL_STORAGE_PLAYERS_KEY, JSON.stringify(players.value))
   localStorage.setItem(LOCAL_STORAGE_MATCHES_KEY, JSON.stringify(matches.value))
+
+  await updateAllPlayers(players.value)
+}
+
+const updateAllPlayers = async (playersArray: Player[]) => {
+  try {
+    const updatePromises = playersArray.map(player => {
+      return supabase
+        .from('players')
+        .update({ current_score: player.current_score, history: player.history, losses: player.losses, wins: player.wins, matches_played: player.matches_played })
+        .eq('_id', player._id) // Tìm đúng người theo ID để ghi đè điểm mới
+    })
+
+    // Kích hoạt tất cả các lệnh update chạy song song
+    const results = await Promise.all(updatePromises)
+
+    // Kiểm tra xem có lệnh nào bị lỗi không
+    const hasError = results.some(res => res.error)
+    if (hasError) throw new Error("Có lỗi xảy ra khi cập nhật điểm thành viên!")
+
+    alert("Cập nhật toàn bộ người chơi thành công!")
+  } catch (error) {
+    console.error(error.message)
+  }
 }
 
 const resetToDefault = () => {
@@ -526,10 +551,10 @@ const getBatchEloPreview = (entry: BatchPlayerEntry): number => {
   return Math.round((entry.wins * 0.25 - losses * 0.25) * 100) / 100
 }
 
-const submitBatchUpdate = () => {
+const submitBatchUpdate = async () => {
   if (
     !confirm(
-      'Bạn có chắc muốn lưu draft cho ngày ' + batchDate.value + ' không? Dữ liệu sẽ được lưu trong 1 ngày.',
+      'Bạn có chắc muốn lưu cho ngày ' + batchDate.value + ' không?',
     )
   ) return
 
@@ -600,6 +625,17 @@ const submitBatchUpdate = () => {
   )
   existingSessions.unshift(newSession)
   localStorage.setItem(LOCAL_STORAGE_SESSIONS_KEY, JSON.stringify(existingSessions))
+
+  // save to supabase
+  const { error: sessionError } = await supabase
+    .from('sessions')
+    .insert([
+      newSession
+    ])
+
+  if (sessionError) {
+    console.log(sessionError)
+  }
 
   // Save updated players
   saveToLocalStorage()
