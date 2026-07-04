@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { supabase } from '@/utils/supabase'
+import { supabase } from "@/utils/supabase"
 
 const route = useRoute()
 const router = useRouter()
@@ -276,15 +276,10 @@ const updateAllPlayers = async (playersArray: Player[]) => {
     })
 
     // Kích hoạt tất cả các lệnh update chạy song song
-    const results = await Promise.all(updatePromises)
-
-    // Kiểm tra xem có lệnh nào bị lỗi không
-    const hasError = results.some(res => res.error)
-    if (hasError) throw new Error("Có lỗi xảy ra khi cập nhật điểm thành viên!")
-
+    await Promise.all(updatePromises)
     alert("Cập nhật toàn bộ người chơi thành công!")
   } catch (error) {
-    console.error(error.message)
+    console.error(error)
   }
 }
 
