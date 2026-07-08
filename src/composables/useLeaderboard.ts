@@ -1,9 +1,5 @@
 import { computed, ref, watch } from 'vue'
-import {
-  DEFAULT_PLAYERS,
-  LOCAL_STORAGE_DRAFT_KEY,
-  MATCHES_PER_SESSION,
-} from '@/domain/constants'
+import { DEFAULT_PLAYERS, LOCAL_STORAGE_DRAFT_KEY, MATCHES_PER_SESSION } from '@/domain/constants'
 import type {
   BatchPlayerEntry,
   BatchSession,
@@ -11,8 +7,8 @@ import type {
   Player,
   PlayerEloChange,
 } from '@/domain/types'
-import { computeBatchSession, previewBatchElo } from '@/services/elo'
-import { getQuarter } from '@/services/format'
+import { computeBatchSession, computeMatchResult, previewBatchElo } from '@/services/elo'
+import { formatDate, getQuarter } from '@/services/format'
 import { useDataStore } from '@/data/provider'
 
 export type LeaderboardTab = 'leaderboard' | 'matches'
@@ -35,6 +31,9 @@ export function useLeaderboard() {
   const searchQuery = ref('')
   const filterGroup = ref<FilterGroup>('all')
   const sortBy = ref<SortBy>('rank_desc')
+
+  // Single match recording state — ngày của buổi mà trận thuộc về
+  const matchDate = ref(new Date().toISOString().slice(0, 10))
 
   // Batch update state
   const batchNote = ref('')
@@ -67,6 +66,60 @@ export function useLeaderboard() {
     await Promise.all([loadPlayers(), loadMatches()])
   }
 
+  // --- Single match recording ---
+  const submitMatch = async (
+    winnerIds: string[],
+    loserIds: string[],
+    setScore: string,
+  ): Promise<{ success?: MatchSuccess; error?: string }> => {
+    if (winnerIds.length === 0 || loserIds.length === 0) {
+      return { error: 'Vui lòng chọn ít nhất 1 người thắng và 1 người thua.' }
+    }
+    if (winnerIds.length !== loserIds.length) {
+      return {
+        error: `Số người mỗi đội phải bằng nhau (hiện tại: ${winnerIds.length} thắng vs ${loserIds.length} thua).`,
+      }
+    }
+    if (winnerIds.some((id) => loserIds.includes(id))) {
+      return { error: 'Cùng 1 người không thể vừa thắng vừa thua.' }
+    }
+    const allFound = [...winnerIds, ...loserIds].every((id) =>
+      players.value.some((p) => p._id === id),
+    )
+    if (!allFound) {
+      return { error: 'Không tìm thấy thông tin tay vợt.' }
+    }
+
+    // Nếu chọn ngày hôm nay: giữ giờ thực; ngày khác: dùng đầu ngày đó
+    const today = new Date().toISOString().slice(0, 10)
+    const playedAt =
+      matchDate.value === today ? new Date().toISOString() : new Date(matchDate.value).toISOString()
+
+    const { match, updatedPlayers, winners, losers, change } = computeMatchResult(
+      players.value,
+      winnerIds,
+      loserIds,
+      { score: setScore, playedAt },
+    )
+
+    // Commit updated snapshots into reactive state.
+    updatedPlayers.forEach((updated) => {
+      const idx = players.value.findIndex((p) => p._id === updated._id)
+      if (idx !== -1) players.value[idx] = updated
+    })
+    matches.value.unshift(match)
+
+    try {
+      await store.matches.add(match)
+      await store.players.saveAll(players.value)
+    } catch (err) {
+      console.error('Lưu trận đấu thất bại.', err)
+      return { error: 'Lưu dữ liệu thất bại, vui lòng thử lại.' }
+    }
+
+    return { success: { winners, losers, change } }
+  }
+
   // --- Batch update ---
   const openBatch = () => {
     batchEntries.value = players.value.map((p) => ({
@@ -91,7 +144,9 @@ export function useLeaderboard() {
   const saveDraft = () => {
     if (
       !confirm(
-        'Bạn có chắc muốn lưu draft cho ngày ' + batchDate.value + ' không? Dữ liệu sẽ được lưu trong 1 ngày.',
+        'Bạn có chắc muốn lưu draft cho ngày ' +
+          batchDate.value +
+          ' không? Dữ liệu sẽ được lưu trong 1 ngày.',
       )
     )
       return
@@ -131,11 +186,10 @@ export function useLeaderboard() {
       return
     }
 
-    const { session, updatedPlayers } = computeBatchSession(
-      players.value,
-      batchEntries.value,
-      { date: batchDate.value, note: batchNote.value },
-    )
+    const { session, updatedPlayers } = computeBatchSession(players.value, batchEntries.value, {
+      date: batchDate.value,
+      note: batchNote.value,
+    })
 
     // Commit updated snapshots into reactive state.
     updatedPlayers.forEach((updated) => {
@@ -193,11 +247,27 @@ export function useLeaderboard() {
     else if (sortBy.value === 'rank_asc') result.sort((a, b) => a.current_score - b.current_score)
     else if (sortBy.value === 'name') result.sort((a, b) => a.name.localeCompare(b.name, 'vi'))
     else if (sortBy.value === 'improvement')
-      result.sort(
-        (a, b) => b.current_score - b.initial_score - (a.current_score - a.initial_score),
-      )
+      result.sort((a, b) => b.current_score - b.initial_score - (a.current_score - a.initial_score))
 
     return result
+  })
+
+  // Matches grouped by play day (mỗi ngày = 1 buổi), newest day first
+  const matchesByDay = computed(() => {
+    const groups = new Map<string, MatchRecord[]>()
+    matches.value.forEach((m) => {
+      const day = m.played_at.slice(0, 10)
+      const list = groups.get(day)
+      if (list) list.push(m)
+      else groups.set(day, [m])
+    })
+    return [...groups.entries()]
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([date, dayMatches]) => ({
+        date,
+        label: formatDate(date),
+        matches: dayMatches,
+      }))
   })
 
   const rankedPlayersList = computed(() =>
@@ -217,6 +287,7 @@ export function useLeaderboard() {
     searchQuery,
     filterGroup,
     sortBy,
+    matchDate,
     batchNote,
     batchDate,
     batchEntries,
@@ -229,12 +300,14 @@ export function useLeaderboard() {
     resetToDefault,
     saveDraft,
     submitBatchUpdate,
+    submitMatch,
     // helpers
     getBatchEloPreview,
     getQuarter,
     // computed
     statsHero,
     filteredPlayers,
+    matchesByDay,
     getPlayerRank,
     // constants for template
     MATCHES_PER_SESSION,

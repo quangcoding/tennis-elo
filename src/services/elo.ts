@@ -1,10 +1,12 @@
-import {
-  ELO_PER_MATCH,
-  MATCHES_PER_SESSION,
-  MIN_SCORE,
-  OFFLINE_PENALTY,
-} from '@/domain/constants'
-import type { BatchPlayerEntry, BatchSession, BatchSessionChange, Player } from '@/domain/types'
+import { ELO_PER_MATCH, MATCHES_PER_SESSION, MIN_SCORE, OFFLINE_PENALTY } from '@/domain/constants'
+import type {
+  BatchPlayerEntry,
+  BatchSession,
+  BatchSessionChange,
+  MatchRecord,
+  Player,
+  PlayerEloChange,
+} from '@/domain/types'
 import { getQuarter } from './format'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
@@ -83,4 +85,77 @@ export const computeBatchSession = (
   }
 
   return { session, updatedPlayers }
+}
+
+export interface MatchComputation {
+  match: MatchRecord
+  /** New player snapshots (clones) with updated score/history/stats applied. */
+  updatedPlayers: Player[]
+  winners: PlayerEloChange[]
+  losers: PlayerEloChange[]
+  change: number
+}
+
+/**
+ * Pure single-match calculation (singles or doubles). Winners gain
+ * ELO_PER_MATCH, losers lose the same (floored at MIN_SCORE). Returns the
+ * match record plus updated (cloned) player states; callers commit them.
+ */
+export const computeMatchResult = (
+  players: Player[],
+  winnerIds: string[],
+  loserIds: string[],
+  opts: { score: string; playedAt: string },
+): MatchComputation => {
+  const clone = (p: Player): Player => ({ ...p, history: [...p.history] })
+  const winnerPlayers = winnerIds
+    .map((id) => players.find((p) => p._id === id))
+    .filter((p): p is Player => Boolean(p))
+    .map(clone)
+  const loserPlayers = loserIds
+    .map((id) => players.find((p) => p._id === id))
+    .filter((p): p is Player => Boolean(p))
+    .map(clone)
+
+  const eloChange = ELO_PER_MATCH
+
+  const winners: PlayerEloChange[] = []
+  const losers: PlayerEloChange[] = []
+
+  // Apply Elo changes — each player gets the full change (not split)
+  winnerPlayers.forEach((p) => {
+    const oldElo = p.current_score
+    p.current_score = round2(p.current_score + eloChange)
+    p.matches_played += 1
+    p.wins += 1
+    p.history.push(p.current_score)
+    winners.push({ name: p.name, oldElo, newElo: p.current_score })
+  })
+  loserPlayers.forEach((p) => {
+    const oldElo = p.current_score
+    p.current_score = round2(Math.max(MIN_SCORE, p.current_score - eloChange))
+    p.matches_played += 1
+    p.losses += 1
+    p.history.push(p.current_score)
+    losers.push({ name: p.name, oldElo, newElo: p.current_score })
+  })
+
+  const match: MatchRecord = {
+    id: 'm_' + Date.now(),
+    winner_ids: winnerPlayers.map((p) => p._id),
+    winner_names: winnerPlayers.map((p) => p.name),
+    loser_ids: loserPlayers.map((p) => p._id),
+    loser_names: loserPlayers.map((p) => p.name),
+    score: opts.score,
+    elo_change: eloChange,
+    played_at: opts.playedAt,
+  }
+
+  return {
+    match,
+    updatedPlayers: [...winnerPlayers, ...loserPlayers],
+    winners,
+    losers,
+    change: eloChange,
+  }
 }
