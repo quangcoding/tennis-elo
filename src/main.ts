@@ -5,10 +5,18 @@ import { createPinia } from 'pinia'
 
 import App from './App.vue'
 import router from './router'
+import { provideDataStore } from './data/provider'
+import { createSupabaseDataStore } from './data/supabase/supabaseDataStore'
+// import { createLocalDataStore } from './data/local/localDataStore'
 
 const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
+
+// --- Storage injection ---
+// Đổi DB lưu trữ ở đây: chỉ cần thay bằng một DataStore khác
+// (vd: createLocalDataStore(), hoặc một createRestDataStore() sau này).
+provideDataStore(app, createSupabaseDataStore())
 
 app.mount('#app')

@@ -1,201 +1,64 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { supabase } from "@/utils/supabase"
+import type { MatchRecord, Player } from '@/domain/types'
+import { getAvatarGradient, getInitials, formatDate, formatRelativeDate } from '@/services/format'
+import { useLeaderboard, type MatchSuccess } from '@/composables/useLeaderboard'
 
 const route = useRoute()
 const router = useRouter()
 
-// --- TS Interfaces ---
-interface Player {
-  _id: string
-  name: string
-  current_score: number
-  initial_score: number
-  created_at: string
-  matches_played: number
-  wins: number
-  losses: number
-  history: number[]
-}
+// All data-driven state & actions come from the composable (storage-agnostic via DI).
+const {
+  players,
+  matches,
+  currentTab,
+  searchQuery,
+  filterGroup,
+  sortBy,
+  batchNote,
+  batchDate,
+  batchEntries,
+  batchSuccessData,
+  batchError,
+  init,
+  openBatch,
+  resetBatchResult,
+  resetToDefault: resetStore,
+  saveDraft,
+  submitBatchUpdate,
+  getBatchEloPreview,
+  getQuarter,
+  statsHero,
+  filteredPlayers,
+  getPlayerRank,
+} = useLeaderboard()
 
-interface MatchRecord {
-  id: string
-  // Supports both singles (1 player) and doubles (2 players)
-  winner_ids: string[]
-  winner_names: string[]
-  loser_ids: string[]
-  loser_names: string[]
-  score: string
-  elo_change: number
-  played_at: string
-  // Legacy compat fields (single string)
-  winner_id?: string
-  winner_name?: string
-  loser_id?: string
-  loser_name?: string
-}
-
-// --- Constants ---
-const LOCAL_STORAGE_PLAYERS_KEY = 'tennis_elo_players_v1'
-const LOCAL_STORAGE_MATCHES_KEY = 'tennis_elo_matches_v1'
-const LOCAL_STORAGE_SESSIONS_KEY = 'tennis_elo_sessions_v1'
-const LOCAL_STORAGE_DRAFT_KEY = 'tennis_elo_batch_draft_v1'
-
-const DEFAULT_PLAYERS: Player[] = [
-  {
-    _id: 'p01',
-    name: 'Quang',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-  {
-    _id: 'p02',
-    name: 'Tuyển',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-  {
-    _id: 'p03',
-    name: 'Khánh',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-  {
-    _id: 'p04',
-    name: 'Hoàng',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-  {
-    _id: 'p05',
-    name: 'Hiếu',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-  {
-    _id: 'p06',
-    name: 'Giang',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-  {
-    _id: 'p07',
-    name: 'Tùng',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-  {
-    _id: 'p08',
-    name: 'Long',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-]
-
-const DEFAULT_MATCHES: MatchRecord[] = []
-
-// --- Reactive State ---
-const players = ref<Player[]>([])
-const matches = ref<MatchRecord[]>([])
-const currentTab = ref<'leaderboard' | 'matches'>('leaderboard')
-
-// Filters and Sorts
-const searchQuery = ref('')
-const filterGroup = ref<'all' | 'high' | 'mid' | 'low'>('all')
-const sortBy = ref<'rank_desc' | 'rank_asc' | 'name' | 'improvement'>('rank_desc')
-
-// Modals State
+// --- View-local modal state ---
 const showAddMatchModal = ref(false)
 const showDetailModal = ref(false)
 const showBatchModal = ref(false)
 const activePlayer = ref<Player | null>(null)
 
-// Batch Update State
-const batchNote = ref('')
-const batchDate = ref(new Date().toISOString().slice(0, 10))
-const batchEntries = ref<BatchPlayerEntry[]>([])
-const batchSuccessData = ref<BatchSession | null>(null)
-const batchError = ref('')
-
-// Add Match Form — supports singles & doubles
+// Add Match Form — supports singles & doubles (Elo calc still WIP)
 const winnerIds = ref<string[]>([])
 const loserIds = ref<string[]>([])
 const setScore = ref('6-4')
 const formError = ref('')
+const matchSuccessData = ref<MatchSuccess>(null)
 
-// --- Batch Session Interfaces ---
-interface BatchSessionChange {
-  member_id: string
-  name: string
-  elo_gain: number
-  elo_after: number
-}
+// Hovered chart point in details modal
+const hoveredChartPoint = ref<{ x: number; y: number; val: number; idx: number } | null>(null)
 
-interface BatchSession {
-  _id: string
-  date: string
-  quarter: string
-  note: string
-  changes: BatchSessionChange[]
-}
-
-interface BatchPlayerEntry {
-  player_id: string
-  wins: number   // 0–2 (total matches per session = 2, losses = 2 - wins)
-  offline: boolean  // if true: flat -0.25, no match counted
-}
-
-interface PlayerEloChange {
-  name: string
-  oldElo: number
-  newElo: number
-}
-const matchSuccessData = ref<{
-  winners: PlayerEloChange[]
-  losers: PlayerEloChange[]
-  change: number
-} | null>(null)
+// --- Initialization ---
+onMounted(async () => {
+  if (route.query.tab === 'matches') {
+    currentTab.value = 'matches'
+  } else if (route.query.tab === 'leaderboard') {
+    currentTab.value = 'leaderboard'
+  }
+  await init()
+})
 
 // Toggle a player in the winner/loser selection (max 2 per side)
 const toggleWinner = (id: string) => {
@@ -215,252 +78,9 @@ const toggleLoser = (id: string) => {
   }
 }
 
-// Hovered chart point in details modal
-const hoveredChartPoint = ref<{ x: number; y: number; val: number; idx: number } | null>(null)
-
-// --- Initialization ---
-onMounted(async () => {
-  if (route.query.tab === 'matches') {
-    currentTab.value = 'matches'
-  } else if (route.query.tab === 'leaderboard') {
-    currentTab.value = 'leaderboard'
-  }
-
-  // get from supabase
-  const { data, error } = await supabase
-    .from('players')
-    .select('*')
-
-  if (error) {
-    console.log(error)
-    players.value = [...DEFAULT_PLAYERS]
-    localStorage.setItem(LOCAL_STORAGE_PLAYERS_KEY, JSON.stringify(DEFAULT_PLAYERS))
-  } else {
-    players.value = data as Player[]
-  }
-
-
-  // const cachedPlayers = localStorage.getItem(LOCAL_STORAGE_PLAYERS_KEY)
-  // const cachedMatches = localStorage.getItem(LOCAL_STORAGE_MATCHES_KEY)
-
-  // if (cachedPlayers) {
-  //   players.value = JSON.parse(cachedPlayers)
-  // } else {
-  //   players.value = [...DEFAULT_PLAYERS]
-  //   localStorage.setItem(LOCAL_STORAGE_PLAYERS_KEY, JSON.stringify(DEFAULT_PLAYERS))
-  // }
-
-  // if (cachedMatches) {
-  //   matches.value = JSON.parse(cachedMatches)
-  // } else {
-  //   matches.value = [...DEFAULT_MATCHES]
-  //   localStorage.setItem(LOCAL_STORAGE_MATCHES_KEY, JSON.stringify(DEFAULT_MATCHES))
-  // }
-})
-
-// --- Actions & Methods ---
-const saveToLocalStorage = async () => {
-  localStorage.setItem(LOCAL_STORAGE_PLAYERS_KEY, JSON.stringify(players.value))
-  localStorage.setItem(LOCAL_STORAGE_MATCHES_KEY, JSON.stringify(matches.value))
-
-  await updateAllPlayers(players.value)
-}
-
-const updateAllPlayers = async (playersArray: Player[]) => {
-  try {
-    const updatePromises = playersArray.map(player => {
-      return supabase
-        .from('players')
-        .update({ current_score: player.current_score, history: player.history, losses: player.losses, wins: player.wins, matches_played: player.matches_played })
-        .eq('_id', player._id) // Tìm đúng người theo ID để ghi đè điểm mới
-    })
-
-    // Kích hoạt tất cả các lệnh update chạy song song
-    await Promise.all(updatePromises)
-    alert("Cập nhật toàn bộ người chơi thành công!")
-  } catch (error) {
-    console.error(error)
-  }
-}
-
-const resetToDefault = () => {
-  if (
-    confirm(
-      'Bạn có chắc muốn đặt lại dữ liệu mặc định ban đầu không? Toàn bộ lịch sử thêm mới sẽ bị xóa.',
-    )
-  ) {
-    players.value = JSON.parse(JSON.stringify(DEFAULT_PLAYERS))
-    matches.value = JSON.parse(JSON.stringify(DEFAULT_MATCHES))
-    saveToLocalStorage()
-    showDetailModal.value = false
-    showAddMatchModal.value = false
-  }
-}
-
-// Compute initials for avatar (e.g. Nguyễn Văn Hùng -> NVH, Lê Hoàng Nam -> LHN)
-const getInitials = (name: string) => {
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 0 || !parts[0]) return ''
-  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
-  const first = parts[0][0] || ''
-  const middle = parts[parts.length - 2]?.[0] || ''
-  const last = parts[parts.length - 1]?.[0] || ''
-  return (first + middle + last).toUpperCase()
-}
-
-// Deterministic Avatar Gradient Class
-const getAvatarGradient = (name: string) => {
-  const colors = [
-    'from-blue-600 to-indigo-750',
-    'from-emerald-500 to-teal-600',
-    'from-purple-600 to-pink-600',
-    'from-amber-500 to-orange-605',
-    'from-cyan-500 to-blue-600',
-    'from-rose-500 to-pink-600',
-  ]
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const idx = Math.abs(hash) % colors.length
-  return colors[idx]
-}
-
-// Helper for formatted joined date
-const formatDate = (isoString: string) => {
-  const d = new Date(isoString)
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
-}
-
-// Format relative date for recent matches (e.g. "2 giờ trước", "Hôm qua")
-const formatRelativeDate = (isoString: string) => {
-  const d = new Date(isoString)
-  const now = new Date()
-  const diffTime = Math.abs(now.getTime() - d.getTime())
-  const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
-
-  if (diffDays === 0) {
-    const diffHours = Math.floor(diffTime / (1000 * 60 * 60))
-    if (diffHours === 0) {
-      const diffMins = Math.floor(diffTime / (1000 * 60))
-      return diffMins <= 1 ? 'Vừa xong' : `${diffMins} phút trước`
-    }
-    return `${diffHours} giờ trước`
-  }
-  if (diffDays === 1) return 'Hôm qua'
-  if (diffDays < 7) return `${diffDays} ngày trước`
-  return formatDate(isoString)
-}
-
-// Elo formulas and Match registration (supports singles & doubles)
 const submitMatch = () => {
-  // TODO: Implement match submission logic
+  // TODO: Implement match submission logic (Elo per-match)
   formError.value = `Tính năng đang phát triển, vui lòng donate cho lập trình viên để tăng tốc độ!`
-  return
-
-
-  // formError.value = ''
-
-  // if (winnerIds.value.length === 0 || loserIds.value.length === 0) {
-  //   formError.value = 'Vui lòng chọn ít nhất 1 người thắng và 1 người thua.'
-  //   return
-  // }
-
-  // // Check team sizes match (1v1 or 2v2 only)
-  // if (winnerIds.value.length !== loserIds.value.length) {
-  //   formError.value = `Số người mỗi đội phải bằng nhau (hiện tại: ${winnerIds.value.length} thắng vs ${loserIds.value.length} thua).`
-  //   return
-  // }
-
-  // // Check overlap between teams
-  // const overlap = winnerIds.value.some((id) => loserIds.value.includes(id))
-  // if (overlap) {
-  //   formError.value = 'Cùng 1 người không thể vừa thắng vừa thua.'
-  //   return
-  // }
-
-  // // Resolve player objects
-  // const winnerPlayers = winnerIds.value
-  //   .map((id) => players.value.find((p) => p._id === id))
-  //   .filter(Boolean) as Player[]
-  // const loserPlayers = loserIds.value
-  //   .map((id) => players.value.find((p) => p._id === id))
-  //   .filter(Boolean) as Player[]
-
-  // if (
-  //   winnerPlayers.length !== winnerIds.value.length ||
-  //   loserPlayers.length !== loserIds.value.length
-  // ) {
-  //   formError.value = 'Không tìm thấy thông tin kỳ thủ.'
-  //   return
-  // }
-
-  // // // --- Thuật toán Elo xác suất (tạm comment) ---
-  // // const avgWinnerElo = winnerPlayers.reduce((s, p) => s + p.current_score, 0) / winnerPlayers.length
-  // // const avgLoserElo = loserPlayers.reduce((s, p) => s + p.current_score, 0) / loserPlayers.length
-  // // const ratingDiff = avgLoserElo - avgWinnerElo
-  // // const expectedWinner = 1 / (1 + Math.pow(10, ratingDiff / 2.0))
-  // // const K = 0.2
-  // // const rawChange = K * (1 - expectedWinner)
-  // // const eloChange = Math.max(0.02, Math.round(rawChange * 100) / 100)
-
-  // // Thuật toán tạm: thắng +0.25, thua -0.25
-  // const eloChange = 0.25
-
-  // // Snapshot old Elos for success display
-  // const winnersBefore: PlayerEloChange[] = winnerPlayers.map((p) => ({
-  //   name: p.name,
-  //   oldElo: p.current_score,
-  //   newElo: 0,
-  // }))
-  // const losersBefore: PlayerEloChange[] = loserPlayers.map((p) => ({
-  //   name: p.name,
-  //   oldElo: p.current_score,
-  //   newElo: 0,
-  // }))
-
-  // // Apply Elo changes — each player gets full change (not split)
-  // winnerPlayers.forEach((p) => {
-  //   p.current_score = Math.round((p.current_score + eloChange) * 100) / 100
-  //   p.matches_played += 1
-  //   p.wins += 1
-  //   p.history.push(p.current_score)
-  // })
-  // loserPlayers.forEach((p) => {
-  //   p.current_score = Math.round(Math.max(5.0, p.current_score - eloChange) * 100) / 100
-  //   p.matches_played += 1
-  //   p.losses += 1
-  //   p.history.push(p.current_score)
-  // })
-
-  // // Fill newElo after update
-  // winnersBefore.forEach((w, i) => {
-  //   w.newElo = winnerPlayers[i]!.current_score
-  // })
-  // losersBefore.forEach((l, i) => {
-  //   l.newElo = loserPlayers[i]!.current_score
-  // })
-
-  // // Save new Match record
-  // const newMatch: MatchRecord = {
-  //   id: 'm_' + Date.now(),
-  //   winner_ids: winnerPlayers.map((p) => p._id),
-  //   winner_names: winnerPlayers.map((p) => p.name),
-  //   loser_ids: loserPlayers.map((p) => p._id),
-  //   loser_names: loserPlayers.map((p) => p.name),
-  //   score: setScore.value,
-  //   elo_change: eloChange,
-  //   played_at: new Date().toISOString(),
-  // }
-
-  // matches.value.unshift(newMatch)
-  // saveToLocalStorage()
-
-  // matchSuccessData.value = { winners: winnersBefore, losers: losersBefore, change: eloChange }
-
-  // // Reset selections
-  // winnerIds.value = []
-  // loserIds.value = []
 }
 
 const closeAddMatchModal = () => {
@@ -471,6 +91,18 @@ const closeAddMatchModal = () => {
   loserIds.value = []
 }
 
+const resetToDefault = async () => {
+  if (
+    !confirm(
+      'Bạn có chắc muốn đặt lại dữ liệu mặc định ban đầu không? Toàn bộ lịch sử thêm mới sẽ bị xóa.',
+    )
+  )
+    return
+  await resetStore()
+  showDetailModal.value = false
+  showAddMatchModal.value = false
+}
+
 // Player details modal actions
 const openPlayerDetails = (player: Player) => {
   activePlayer.value = player
@@ -478,256 +110,30 @@ const openPlayerDetails = (player: Player) => {
   showDetailModal.value = true
 }
 
-// --- Batch Update Logic ---
-const MATCHES_PER_SESSION = 2  // Tổng số trận mỗi buổi (cố định)
-const OFFLINE_PENALTY = 0.25   // Phạt offline trực tiếp
-
-watch(batchDate, () => {
-  loadDraft()
-})
-
+// --- Batch modal wiring ---
 const openBatchModal = () => {
-  // Initialize entries for every player
-  batchEntries.value = players.value.map((p) => ({
-    player_id: p._id,
-    wins: 0,
-    offline: false,
-  }))
-  batchNote.value = ''
-  batchDate.value = new Date().toISOString().slice(0, 10)
-  batchError.value = ''
-  batchSuccessData.value = null
+  openBatch()
   showBatchModal.value = true
-  loadDraft()
 }
-
 const closeBatchModal = () => {
   showBatchModal.value = false
-  batchSuccessData.value = null
-  batchError.value = ''
+  resetBatchResult()
 }
-
-const getDraftKey = () => {
-  return `${LOCAL_STORAGE_DRAFT_KEY}_${batchDate.value}`
-}
-
-const saveDraft = () => {
-  if (
-    !confirm(
-      'Bạn có chắc muốn lưu draft cho ngày ' + batchDate.value + ' không? Dữ liệu sẽ được lưu trong 1 ngày.',
-    )
-  ) return
-
-  const draft = {
-    date: batchDate.value,
-    note: batchNote.value,
-    entries: batchEntries.value,
-    savedAt: Date.now()
-  }
-  localStorage.setItem(getDraftKey(), JSON.stringify(draft))
-}
-
-const loadDraft = () => {
-  const saved = localStorage.getItem(getDraftKey())
-  if (saved) {
-    const draft = JSON.parse(saved)
-    const now = Date.now()
-    const oneDayMs = 24 * 60 * 60 * 1000
-    if (now - draft.savedAt < oneDayMs) {
-      batchNote.value = draft.note || ''
-      batchEntries.value = draft.entries || []
-    } else {
-      localStorage.removeItem(getDraftKey())
-    }
-  }
-}
-
 const openAddMatchFromBatch = () => {
   closeBatchModal()
   showAddMatchModal.value = true
 }
 
-const getQuarter = (dateStr: string): string => {
-  const d = new Date(dateStr)
-  const q = Math.ceil((d.getMonth() + 1) / 3)
-  return `${d.getFullYear()}-Q${q}`
-}
-
-// Helper: tính elo delta preview cho 1 entry
-const getBatchEloPreview = (entry: BatchPlayerEntry): number => {
-  if (entry.offline) return -OFFLINE_PENALTY
-  const losses = MATCHES_PER_SESSION - entry.wins
-  return Math.round((entry.wins * 0.25 - losses * 0.25) * 100) / 100
-}
-
-const submitBatchUpdate = async () => {
-  if (
-    !confirm(
-      'Bạn có chắc muốn lưu cho ngày ' + batchDate.value + ' không?',
-    )
-  ) return
-
-  batchError.value = ''
-
-  const hasAnyEntry = batchEntries.value.some((e) => e.offline || e.wins > 0)
-  if (!hasAnyEntry) {
-    batchError.value = 'Vui lòng nhập kết quả cho ít nhất 1 người (hoặc đánh dấu offline).'
-    return
-  }
-
-  const eloPerMatch = 0.25
-  const sessionDate = new Date(batchDate.value).toISOString()
-  const quarter = getQuarter(batchDate.value)
-  const sessionId = 'session_' + Date.now()
-
-  const changes: BatchSessionChange[] = []
-
-  batchEntries.value.forEach((entry) => {
-    const player = players.value.find((p) => p._id === entry.player_id)
-    if (!player) return
-
-    let eloGain: number
-    let newScore: number
-
-    if (entry.offline) {
-      // Offline: trừ thẳng 0.25, không tính trận
-      eloGain = -OFFLINE_PENALTY
-      newScore = Math.round(Math.max(5.0, player.current_score + eloGain) * 100) / 100
-      player.current_score = newScore
-      player.history.push(newScore)
-    } else {
-      // Chỉ xử lý nếu đã đánh (wins > 0 hoặc mặc định 0 thắng = 2 thua)
-      // Bỏ qua nếu người này không tham gia (wins = 0 và không offline)
-      // => Để tính: wins=0 nghĩa là thua cả 2 trận
-      // Nhưng ta chỉ tính cho người nào được chủ động nhập (offline = false, wins có thể = 0)
-      // Quyết định: chỉ tính những người KHÔNG offline và đang tham gia buổi
-      // => Nếu wins = 0 và offline = false: người đó thua 2 trận
-      const losses = MATCHES_PER_SESSION - entry.wins
-      eloGain = Math.round((entry.wins * eloPerMatch - losses * eloPerMatch) * 100) / 100
-      newScore = Math.round(Math.max(5.0, player.current_score + eloGain) * 100) / 100
-      player.current_score = newScore
-      player.matches_played += MATCHES_PER_SESSION
-      player.wins += entry.wins
-      player.losses += losses
-      player.history.push(newScore)
-    }
-
-    changes.push({
-      member_id: player._id,
-      name: player.name,
-      elo_gain: eloGain,
-      elo_after: newScore,
-    })
-  })
-
-  const newSession: BatchSession = {
-    _id: sessionId,
-    date: sessionDate,
-    quarter,
-    note: batchNote.value || `Buổi chơi ${new Date(batchDate.value).toLocaleDateString('vi-VN')}`,
-    changes,
-  }
-
-  // Save session to localStorage
-  const existingSessions: BatchSession[] = JSON.parse(
-    localStorage.getItem(LOCAL_STORAGE_SESSIONS_KEY) || '[]',
-  )
-  existingSessions.unshift(newSession)
-  localStorage.setItem(LOCAL_STORAGE_SESSIONS_KEY, JSON.stringify(existingSessions))
-
-  // save to supabase
-  const { error: sessionError } = await supabase
-    .from('sessions')
-    .insert([
-      newSession
-    ])
-
-  if (sessionError) {
-    console.log(sessionError)
-  }
-
-  // Save updated players
-  saveToLocalStorage()
-
-  batchSuccessData.value = newSession
-}
-
-// --- Computed Values ---
-
-// Overview statistics for top hero card
-const statsHero = computed(() => {
-  if (players.value.length === 0) return { total: 0, avgElo: '0.00', totalMatches: 0 }
-  const total = players.value.length
-  const sumElo = players.value.reduce((sum, p) => sum + p.current_score, 0)
-  const avgElo = (sumElo / total).toFixed(2)
-  const totalMatches = matches.value.length
-  return { total, avgElo, totalMatches }
-})
-
-// Sorted and Filtered Players List
-const filteredPlayers = computed(() => {
-  let result = [...players.value]
-
-  // Apply search
-  if (searchQuery.value.trim() !== '') {
-    const q = searchQuery.value.toLowerCase().trim()
-    result = result.filter((p) => p.name.toLowerCase().includes(q))
-  }
-
-  // Apply filter bracket
-  if (filterGroup.value === 'high') {
-    result = result.filter((p) => p.current_score >= 7.0)
-  } else if (filterGroup.value === 'mid') {
-    result = result.filter((p) => p.current_score >= 6.0 && p.current_score < 7.0)
-  } else if (filterGroup.value === 'low') {
-    result = result.filter((p) => p.current_score < 6.0)
-  }
-
-  // Sort
-  if (sortBy.value === 'rank_desc') {
-    // Highest Elo first (Default rank order)
-    result.sort((a, b) => b.current_score - a.current_score)
-  } else if (sortBy.value === 'rank_asc') {
-    // Lowest Elo first
-    result.sort((a, b) => a.current_score - b.current_score)
-  } else if (sortBy.value === 'name') {
-    // Alphabetical
-    result.sort((a, b) => a.name.localeCompare(b.name, 'vi'))
-  } else if (sortBy.value === 'improvement') {
-    // Highest rating improvement first
-    result.sort((a, b) => {
-      const impA = a.current_score - a.initial_score
-      const impB = b.current_score - b.initial_score
-      return impB - impA
-    })
-  }
-
-  return result
-})
-
-// Sorted Player List to calculate ranking indexes accurately
-const rankedPlayersList = computed(() => {
-  return [...players.value].sort((a, b) => b.current_score - a.current_score)
-})
-
-const getPlayerRank = (playerId: string) => {
-  const index = rankedPlayersList.value.findIndex((p) => p._id === playerId)
-  return index !== -1 ? index + 1 : 0
-}
-
-// Retrieve specific player match history (supports both legacy and new array format)
+// --- Player detail view helpers (pure, based on activePlayer/matches) ---
 const playerMatchHistory = computed(() => {
   if (!activePlayer.value) return []
   const id = activePlayer.value._id
   return matches.value.filter((m) => {
-    // New format
     if (m.winner_ids) return m.winner_ids.includes(id) || m.loser_ids.includes(id)
-    // Legacy compat
     return m.winner_id === id || m.loser_id === id
   })
 })
 
-// Helper to get winner/loser names from a match (handles both formats)
 const getMatchWinnerNames = (m: MatchRecord) => m.winner_names?.join(' & ') ?? m.winner_name ?? ''
 const getMatchLoserNames = (m: MatchRecord) => m.loser_names?.join(' & ') ?? m.loser_name ?? ''
 const isPlayerWinner = (m: MatchRecord, playerId: string) =>

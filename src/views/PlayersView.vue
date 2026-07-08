@@ -1,156 +1,35 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-
-// --- TS Interfaces ---
-interface Player {
-  _id: string
-  name: string
-  current_score: number
-  initial_score: number
-  created_at: string
-  matches_played: number
-  wins: number
-  losses: number
-  history: number[]
-}
-
-const LOCAL_STORAGE_PLAYERS_KEY = 'tennis_elo_players_v1'
-
-const DEFAULT_PLAYERS: Player[] = [
-  {
-    _id: 'p01',
-    name: 'Quang',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-  {
-    _id: 'p02',
-    name: 'Tuyển',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-  {
-    _id: 'p03',
-    name: 'Khánh',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-  {
-    _id: 'p04',
-    name: 'Hoàng',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-  {
-    _id: 'p05',
-    name: 'Hiếu',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-  {
-    _id: 'p06',
-    name: 'Giang',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-  {
-    _id: 'p07',
-    name: 'Tùng',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-  {
-    _id: 'p08',
-    name: 'Long',
-    current_score: 6.0,
-    initial_score: 6.0,
-    created_at: '2026-07-01T00:00:00.000Z',
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [6.0],
-  },
-]
+import type { Player } from '@/domain/types'
+import { getAvatarGradient, getInitials } from '@/services/format'
+import { usePlayersManager } from '@/composables/usePlayersManager'
 
 const router = useRouter()
 
-// --- State ---
-const players = ref<Player[]>([])
-const searchQuery = ref('')
-const sortBy = ref<'name' | 'elo_desc' | 'elo_asc' | 'matches_desc'>('name')
+// Player data + CRUD come from the composable (storage-agnostic via DI).
+const {
+  players,
+  searchQuery,
+  sortBy,
+  filteredPlayers,
+  load,
+  createPlayer,
+  updatePlayer,
+  deletePlayer,
+} = usePlayersManager()
 
-// Modal states
+// --- View-local modal / toast / form state ---
 const showAddModal = ref(false)
 const showEditModal = ref(false)
 const toastMessage = ref('')
 const toastType = ref<'success' | 'error'>('success')
 
-// Forms state
-const addForm = ref({
-  name: '',
-  initial_score: 6.0,
-})
-
-const editForm = ref({
-  _id: '',
-  name: '',
-  initial_score: 6.0,
-  current_score: 6.0,
-})
-
+const addForm = ref({ name: '', initial_score: 6.0 })
+const editForm = ref({ _id: '', name: '', initial_score: 6.0, current_score: 6.0 })
 const formError = ref('')
 
-// --- Lifecycle ---
-onMounted(() => {
-  const cachedPlayers = localStorage.getItem(LOCAL_STORAGE_PLAYERS_KEY)
-  if (cachedPlayers) {
-    players.value = JSON.parse(cachedPlayers)
-  } else {
-    players.value = [...DEFAULT_PLAYERS]
-    localStorage.setItem(LOCAL_STORAGE_PLAYERS_KEY, JSON.stringify(DEFAULT_PLAYERS))
-  }
-})
-
-// --- Helper Functions ---
-const saveToLocalStorage = () => {
-  localStorage.setItem(LOCAL_STORAGE_PLAYERS_KEY, JSON.stringify(players.value))
-}
+onMounted(load)
 
 const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   toastMessage.value = message
@@ -160,105 +39,20 @@ const showToast = (message: string, type: 'success' | 'error' = 'success') => {
   }, 3000)
 }
 
-const getInitials = (name: string) => {
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 0 || !parts[0]) return ''
-  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase()
-  const first = parts[0][0] || ''
-  const middle = parts[parts.length - 2]?.[0] || ''
-  const last = parts[parts.length - 1]?.[0] || ''
-  return (first + middle + last).toUpperCase()
-}
-
-const getAvatarGradient = (name: string) => {
-  const colors = [
-    'from-blue-600 to-indigo-750',
-    'from-emerald-500 to-teal-600',
-    'from-purple-600 to-pink-600',
-    'from-amber-500 to-orange-605',
-    'from-cyan-500 to-blue-600',
-    'from-rose-500 to-pink-600',
-  ]
-  let hash = 0
-  for (let i = 0; i < name.length; i++) {
-    hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const idx = Math.abs(hash) % colors.length
-  return colors[idx]
-}
-
-// --- Computed ---
-const filteredPlayers = computed(() => {
-  let result = [...players.value]
-
-  // Search
-  if (searchQuery.value.trim() !== '') {
-    const q = searchQuery.value.toLowerCase().trim()
-    result = result.filter((p) => p.name.toLowerCase().includes(q))
-  }
-
-  // Sort
-  if (sortBy.value === 'name') {
-    result.sort((a, b) => a.name.localeCompare(b.name, 'vi'))
-  } else if (sortBy.value === 'elo_desc') {
-    result.sort((a, b) => b.current_score - a.current_score)
-  } else if (sortBy.value === 'elo_asc') {
-    result.sort((a, b) => a.current_score - b.current_score)
-  } else if (sortBy.value === 'matches_desc') {
-    result.sort((a, b) => b.matches_played - a.matches_played)
-  }
-
-  return result
-})
-
-// --- CRUD Actions ---
-
-// Create Player
-const handleCreatePlayer = () => {
+// --- CRUD handlers (validation + persistence live in the composable) ---
+const handleCreatePlayer = async () => {
   formError.value = ''
-  const name = addForm.value.name.trim()
-  const initialScore = Number(addForm.value.initial_score)
-
-  if (!name) {
-    formError.value = 'Vui lòng nhập tên tuyển thủ.'
+  const { player, error } = await createPlayer(addForm.value)
+  if (error) {
+    formError.value = error
     return
   }
-
-  // Check if player name exists
-  const exists = players.value.some((p) => p.name.toLowerCase() === name.toLowerCase())
-  if (exists) {
-    formError.value = 'Tên tuyển thủ đã tồn tại trong danh sách.'
-    return
-  }
-
-  if (isNaN(initialScore) || initialScore < 0) {
-    formError.value = 'Điểm Elo ban đầu phải là một số lớn hơn hoặc bằng 0.'
-    return
-  }
-
-  const newPlayer: Player = {
-    _id: 'p_' + Date.now(),
-    name,
-    initial_score: initialScore,
-    current_score: initialScore,
-    created_at: new Date().toISOString(),
-    matches_played: 0,
-    wins: 0,
-    losses: 0,
-    history: [initialScore],
-  }
-
-  players.value.push(newPlayer)
-  saveToLocalStorage()
-  showToast(`Đã thêm thành công tuyển thủ ${name}!`)
-
-  // Reset form & close modal
+  showToast(`Đã thêm thành công tuyển thủ ${player!.name}!`)
   addForm.value.name = ''
   addForm.value.initial_score = 6.0
   showAddModal.value = false
 }
 
-// Open Edit Modal
 const openEditModal = (player: Player) => {
   editForm.value = {
     _id: player._id,
@@ -270,75 +64,32 @@ const openEditModal = (player: Player) => {
   showEditModal.value = true
 }
 
-// Update Player
-const handleUpdatePlayer = () => {
+const handleUpdatePlayer = async () => {
   formError.value = ''
-  const name = editForm.value.name.trim()
-  const initialScore = Number(editForm.value.initial_score)
-  const currentScore = Number(editForm.value.current_score)
-
-  if (!name) {
-    formError.value = 'Vui lòng nhập tên tuyển thủ.'
+  const { player, error } = await updatePlayer(editForm.value)
+  if (error) {
+    formError.value = error
     return
   }
-
-  // Check if player name exists (excluding current player)
-  const exists = players.value.some(
-    (p) => p._id !== editForm.value._id && p.name.toLowerCase() === name.toLowerCase()
-  )
-  if (exists) {
-    formError.value = 'Tên tuyển thủ đã tồn tại trong danh sách.'
-    return
-  }
-
-  if (isNaN(initialScore) || initialScore < 0 || isNaN(currentScore) || currentScore < 0) {
-    formError.value = 'Điểm Elo phải là số lớn hơn hoặc bằng 0.'
-    return
-  }
-
-  const playerIdx = players.value.findIndex((p) => p._id === editForm.value._id)
-  if (playerIdx === -1) {
-    formError.value = 'Không tìm thấy tuyển thủ cần sửa.'
-    return
-  }
-
-  const player = players.value[playerIdx]
-  if (!player) {
-    formError.value = 'Không tìm thấy tuyển thủ cần sửa.'
-    return
-  }
-
-  // Adjust history if score has changed
-  if (player.initial_score !== initialScore && player.history.length > 0) {
-    player.history[0] = initialScore
-  }
-
-  player.name = name
-  player.initial_score = initialScore
-  player.current_score = currentScore
-
-  saveToLocalStorage()
-  showToast(`Đã cập nhật thông tin tuyển thủ ${name}!`)
+  showToast(`Đã cập nhật thông tin tuyển thủ ${player!.name}!`)
   showEditModal.value = false
 }
 
-// Delete Player
-const handleDeletePlayer = (id: string, name: string) => {
+const handleDeletePlayer = async (id: string, name: string) => {
   const player = players.value.find((p) => p._id === id)
   if (!player) return
 
-  const message = player.matches_played > 0
-    ? `Tuyển thủ ${name} đã tham gia ${player.matches_played} trận đấu. Việc xóa tuyển thủ sẽ giữ lại tên của họ trong lịch sử các trận đấu đã chơi nhưng họ sẽ không còn xuất hiện trên bảng xếp hạng. Bạn có chắc chắn muốn xóa không?`
-    : `Bạn có chắc chắn muốn xóa tuyển thủ ${name} khỏi danh sách?`
+  const message =
+    player.matches_played > 0
+      ? `Tuyển thủ ${name} đã tham gia ${player.matches_played} trận đấu. Việc xóa tuyển thủ sẽ giữ lại tên của họ trong lịch sử các trận đấu đã chơi nhưng họ sẽ không còn xuất hiện trên bảng xếp hạng. Bạn có chắc chắn muốn xóa không?`
+      : `Bạn có chắc chắn muốn xóa tuyển thủ ${name} khỏi danh sách?`
 
   if (confirm(message)) {
-    players.value = players.value.filter((p) => p._id !== id)
-    saveToLocalStorage()
+    await deletePlayer(id)
     showToast(`Đã xóa tuyển thủ ${name}!`)
   }
 }
 
-// Navigation methods
 const navigateToHome = (tab: 'leaderboard' | 'matches') => {
   router.push({ path: '/', query: { tab } })
 }
