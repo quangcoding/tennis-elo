@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { MatchRecord, Player } from '@/domain/types'
+import type { BatchPlayerEntry, MatchRecord, Player } from '@/domain/types'
 import { getAvatarGradient, getInitials, formatDate, formatRelativeDate } from '@/services/format'
 import { useLeaderboard, type MatchSuccess } from '@/composables/useLeaderboard'
 
@@ -133,6 +133,12 @@ const openAddMatchFromBatch = () => {
   closeBatchModal()
   matchDate.value = new Date().toISOString().slice(0, 10)
   showAddMatchModal.value = true
+}
+
+// Toggle offline state for a batch entry (offline players play 0 matches)
+const toggleOffline = (entry: BatchPlayerEntry) => {
+  entry.offline = !entry.offline
+  if (entry.offline) entry.wins = 0
 }
 
 // --- Player detail view helpers (pure, based on activePlayer/matches) ---
@@ -1634,10 +1640,7 @@ const svgAreaPath = computed(() => {
                           >Off</span
                         >
                         <div
-                          @click="
-                            entry.offline = !entry.offline
-                            if (entry.offline) entry.wins = 0
-                          "
+                          @click="toggleOffline(entry)"
                           :class="[
                             'w-8 h-4 rounded-full border transition-all cursor-pointer relative',
                             entry.offline
