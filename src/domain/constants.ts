@@ -4,6 +4,7 @@ import type { Player } from './types'
 export const LOCAL_STORAGE_PLAYERS_KEY = 'tennis_elo_players_v1'
 export const LOCAL_STORAGE_MATCHES_KEY = 'tennis_elo_matches_v1'
 export const LOCAL_STORAGE_SESSIONS_KEY = 'tennis_elo_sessions_v1'
+export const LOCAL_STORAGE_SEASONS_KEY = 'tennis_elo_seasons_v1'
 export const LOCAL_STORAGE_DRAFT_KEY = 'tennis_elo_batch_draft_v1'
 
 // --- Elo rules ---

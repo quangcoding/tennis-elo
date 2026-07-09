@@ -16,9 +16,15 @@ app.use(router)
 
 // --- Storage injection ---
 // Đổi DB lưu trữ ở đây: chỉ cần thay bằng một DataStore khác.
-// Hiện tại: players/sessions lưu Supabase, matches tạm lưu localStorage.
+// Hiện tại: players lưu Supabase, matches/sessions/seasons tạm lưu localStorage
+// (bảng "seasons" và cột "season_id" trên "sessions" chưa được tạo trên Supabase).
 const supabaseStore = createSupabaseDataStore()
 const localStore = createLocalDataStore()
-provideDataStore(app, { ...supabaseStore, matches: localStore.matches })
+provideDataStore(app, {
+  ...supabaseStore,
+  matches: localStore.matches,
+  sessions: localStore.sessions,
+  seasons: localStore.seasons,
+})
 
 app.mount('#app')

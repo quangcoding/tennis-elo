@@ -12,6 +12,7 @@ const router = useRouter()
 const {
   players,
   matches,
+  seasons,
   currentTab,
   searchQuery,
   filterGroup,
@@ -20,6 +21,7 @@ const {
   batchNote,
   batchDate,
   batchEntries,
+  batchSeasonId,
   batchSuccessData,
   batchError,
   init,
@@ -61,6 +63,13 @@ onMounted(async () => {
     currentTab.value = 'leaderboard'
   }
   await init()
+
+  const openBatchSeason = route.query.openBatchSeason
+  if (typeof openBatchSeason === 'string') {
+    openBatchModal()
+    batchSeasonId.value = openBatchSeason
+    router.replace({ path: route.path, query: { ...route.query, openBatchSeason: undefined } })
+  }
 })
 
 // Toggle a player in the winner/loser selection (max 2 per side)
@@ -205,24 +214,19 @@ const svgAreaPath = computed(() => {
 
 <template>
   <!-- Responsive App Shell: Centered Phone Frame on Desktop, Full Bleed on Mobile -->
-  <div
-    class="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-0 md:p-6 font-sans"
-  >
+  <div class="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-0 md:p-6 font-sans">
     <!-- Phone Screen Container Mockup -->
     <div
-      class="w-full md:max-w-md h-screen md:h-[880px] bg-slate-900 shadow-2xl md:rounded-[40px] md:ring-8 md:ring-slate-800 overflow-hidden relative flex flex-col"
-    >
+      class="w-full md:max-w-md h-screen md:h-[880px] bg-slate-900 shadow-2xl md:rounded-[40px] md:ring-8 md:ring-slate-800 overflow-hidden relative flex flex-col">
       <!-- Top Status Bar Mockup (Only visible on desktop/rounded container to look super native) -->
       <div
-        class="hidden md:flex justify-between items-center px-8 pt-4 pb-2 bg-slate-900 text-[11px] font-medium text-slate-400 select-none z-10 shrink-0"
-      >
+        class="hidden md:flex justify-between items-center px-8 pt-4 pb-2 bg-slate-900 text-[11px] font-medium text-slate-400 select-none z-10 shrink-0">
         <span>9:41</span>
         <div class="flex items-center space-x-2">
           <!-- Signal Icon -->
           <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
             <path
-              d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c3.9 3.89 10.21 3.89 14.1 0l1.38-1.79C21.06 16.07 21.8 14.12 21.8 12c0-4.97-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6 0-1.42.49-2.72 1.32-3.75l8.43 10.95c-1.03.83-2.33 1.32-3.75 1.32zm5.1-2.55L8.67 4.5c1.03-.83 2.33-1.32 3.75-1.32 3.31 0 6 2.69 6 6 0 1.42-.49 2.72-1.32 3.75z"
-            />
+              d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c3.9 3.89 10.21 3.89 14.1 0l1.38-1.79C21.06 16.07 21.8 14.12 21.8 12c0-4.97-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6 0-1.42.49-2.72 1.32-3.75l8.43 10.95c-1.03.83-2.33 1.32-3.75 1.32zm5.1-2.55L8.67 4.5c1.03-.83 2.33-1.32 3.75-1.32 3.31 0 6 2.69 6 6 0 1.42-.49 2.72-1.32 3.75z" />
           </svg>
           <!-- Wifi Icon -->
           <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
@@ -237,23 +241,19 @@ const svgAreaPath = computed(() => {
 
       <!-- App Header -->
       <header
-        class="px-5 py-4 bg-slate-900/50 backdrop-blur-md border-b border-slate-800 shrink-0 flex justify-between items-center z-10"
-      >
+        class="px-5 py-4 bg-slate-900/50 backdrop-blur-md border-b border-slate-800 shrink-0 flex justify-between items-center z-10">
         <div class="flex items-center space-x-2">
           <div
-            class="w-8 h-8 rounded-lg bg-gradient-to-tr from-lime-400 to-emerald-500 flex items-center justify-center shadow-lg shadow-lime-500/20"
-          >
+            class="w-8 h-8 rounded-lg bg-gradient-to-tr from-lime-400 to-emerald-500 flex items-center justify-center shadow-lg shadow-lime-500/20">
             <!-- Tennis Ball SVG -->
             <svg class="w-5 h-5 text-slate-950 fill-current" viewBox="0 0 24 24">
               <path
-                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H9v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 1.84-.62 3.53-1.65 4.93z"
-              />
+                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H9v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 1.84-.62 3.53-1.65 4.93z" />
             </svg>
           </div>
           <div>
             <h1
-              class="text-sm font-extrabold tracking-tight bg-gradient-to-r from-slate-50 to-slate-200 bg-clip-text text-transparent"
-            >
+              class="text-sm font-extrabold tracking-tight bg-gradient-to-r from-slate-50 to-slate-200 bg-clip-text text-transparent">
               BangLang Tennis Club
             </h1>
             <p class="text-[9px] text-slate-400 font-bold tracking-wide">Since 2024</p>
@@ -262,46 +262,24 @@ const svgAreaPath = computed(() => {
         <!-- Header Action Buttons -->
         <div class="flex items-center space-x-2">
           <!-- Batch Update Button -->
-          <button
-            @click="openBatchModal"
+          <button @click="openBatchModal"
             class="p-2 rounded-lg bg-lime-500/10 hover:bg-lime-500/20 text-lime-400 hover:text-lime-300 transition-all border border-lime-500/20"
-            title="Cập nhật Elo hàng loạt theo buổi"
-          >
+            title="Cập nhật Elo hàng loạt theo buổi">
             <!-- Calendar/batch icon -->
-            <svg
-              class="w-3.5 h-3.5"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-              />
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
             </svg>
           </button>
 
           <!-- Reset DB Action Button -->
-          <button
-            @click="resetToDefault"
+          <button @click="resetToDefault"
             class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-855 text-slate-400 hover:text-red-400 transition-all border border-slate-800/50"
-            title="Đặt lại dữ liệu mặc định"
-          >
+            title="Đặt lại dữ liệu mặc định">
             <!-- Refresh Icon -->
-            <svg
-              class="w-3.5 h-3.5"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12"
-              />
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 7.89M9 11l3-3 3 3m-3-3v12" />
             </svg>
           </button>
         </div>
@@ -312,36 +290,26 @@ const svgAreaPath = computed(() => {
         <!-- Hero Stats Cards Slider -->
         <div class="px-5 pt-5 pb-2">
           <div
-            class="bg-gradient-to-br from-slate-850 to-slate-900 border border-slate-800/80 rounded-2xl p-4 shadow-xl relative overflow-hidden"
-          >
+            class="bg-gradient-to-br from-slate-850 to-slate-900 border border-slate-800/80 rounded-2xl p-4 shadow-xl relative overflow-hidden">
             <!-- Decorative Tennis Ball Graphic background -->
-            <div
-              class="absolute -right-8 -bottom-8 opacity-[0.03] text-lime-400 w-36 h-36 pointer-events-none"
-            >
+            <div class="absolute -right-8 -bottom-8 opacity-[0.03] text-lime-400 w-36 h-36 pointer-events-none">
               <svg fill="currentColor" viewBox="0 0 24 24" class="w-full h-full">
                 <path
-                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"
-                />
+                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z" />
               </svg>
             </div>
 
             <div class="grid grid-cols-3 divide-x divide-slate-800 text-center relative z-10">
               <div>
-                <span class="text-[9px] uppercase font-extrabold text-slate-400 tracking-wider"
-                  >Tay Vợt</span
-                >
+                <span class="text-[9px] uppercase font-extrabold text-slate-400 tracking-wider">Tay Vợt</span>
                 <p class="text-lg font-black text-lime-400 mt-1">{{ statsHero.total }}</p>
               </div>
               <div>
-                <span class="text-[9px] uppercase font-extrabold text-slate-400 tracking-wider"
-                  >Elo TB</span
-                >
+                <span class="text-[9px] uppercase font-extrabold text-slate-400 tracking-wider">Elo TB</span>
                 <p class="text-lg font-black text-slate-50 mt-1">{{ statsHero.avgElo }}</p>
               </div>
               <div>
-                <span class="text-[9px] uppercase font-extrabold text-slate-400 tracking-wider"
-                  >Tổng Trận</span
-                >
+                <span class="text-[9px] uppercase font-extrabold text-slate-400 tracking-wider">Tổng Trận</span>
                 <p class="text-lg font-black text-slate-50 mt-1">{{ statsHero.totalMatches }}</p>
               </div>
             </div>
@@ -354,40 +322,18 @@ const svgAreaPath = computed(() => {
           <div v-show="currentTab === 'leaderboard'" class="space-y-3">
             <!-- Search bar -->
             <div class="relative">
-              <span
-                class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500"
-              >
-                <svg
-                  class="w-3.5 h-3.5 fill-none stroke-current"
-                  stroke-width="2.5"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-500">
+                <svg class="w-3.5 h-3.5 fill-none stroke-current" stroke-width="2.5" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round"
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
               </span>
-              <input
-                v-model="searchQuery"
-                type="text"
-                placeholder="Tìm kiếm tay vợt..."
-                class="w-full bg-slate-950/90 text-xs text-slate-200 pl-9 pr-8 py-2.5 rounded-xl border border-slate-800/80 placeholder-slate-500 focus:outline-none focus:border-lime-500/50 transition-colors"
-              />
-              <button
-                v-if="searchQuery"
-                @click="searchQuery = ''"
-                class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-slate-300"
-              >
+              <input v-model="searchQuery" type="text" placeholder="Tìm kiếm tay vợt..."
+                class="w-full bg-slate-950/90 text-xs text-slate-200 pl-9 pr-8 py-2.5 rounded-xl border border-slate-800/80 placeholder-slate-500 focus:outline-none focus:border-lime-500/50 transition-colors" />
+              <button v-if="searchQuery" @click="searchQuery = ''"
+                class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-500 hover:text-slate-300">
                 <!-- Close icon -->
-                <svg
-                  class="w-3.5 h-3.5"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2.5"
-                  viewBox="0 0 24 24"
-                >
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
@@ -397,47 +343,31 @@ const svgAreaPath = computed(() => {
             <div class="flex items-center justify-between space-x-2">
               <!-- Filter Dropdown Group (Simple buttons for quick taps) -->
               <div class="flex space-x-1 overflow-x-auto no-scrollbar scroll-smooth py-1 w-[55%]">
-                <button
-                  v-for="grp in [
-                    { id: 'all', label: 'Tất cả' },
-                    { id: 'high', label: 'Top' },
-                    { id: 'mid', label: 'Trung' },
-                    { id: 'low', label: 'F0' },
-                  ]"
-                  :key="grp.id"
-                  @click="filterGroup = grp.id as any"
-                  :class="[
-                    'text-[9px] font-bold px-2.5 py-1.5 rounded-lg border transition-all shrink-0',
-                    filterGroup === grp.id
-                      ? 'bg-lime-500 border-lime-500 text-slate-950 shadow-md shadow-lime-500/10'
-                      : 'bg-slate-950 border-slate-800/60 text-slate-400 hover:text-slate-200',
-                  ]"
-                >
+                <button v-for="grp in [
+                  { id: 'all', label: 'Tất cả' },
+                  { id: 'high', label: 'Top' },
+                  { id: 'mid', label: 'Trung' },
+                  { id: 'low', label: 'F0' },
+                ]" :key="grp.id" @click="filterGroup = grp.id as any" :class="[
+                  'text-[9px] font-bold px-2.5 py-1.5 rounded-lg border transition-all shrink-0',
+                  filterGroup === grp.id
+                    ? 'bg-lime-500 border-lime-500 text-slate-950 shadow-md shadow-lime-500/10'
+                    : 'bg-slate-950 border-slate-800/60 text-slate-400 hover:text-slate-200',
+                ]">
                   {{ grp.label }}
                 </button>
               </div>
 
               <!-- Sorting Select -->
               <div class="relative w-[43%]">
-                <span
-                  class="absolute inset-y-0 left-2.5 flex items-center pointer-events-none text-slate-400"
-                >
-                  <svg
-                    class="w-3 h-3 fill-none stroke-current"
-                    stroke-width="2.5"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"
-                    />
+                <span class="absolute inset-y-0 left-2.5 flex items-center pointer-events-none text-slate-400">
+                  <svg class="w-3 h-3 fill-none stroke-current" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                      d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
                   </svg>
                 </span>
-                <select
-                  v-model="sortBy"
-                  class="w-full bg-slate-950 border border-slate-800 text-[9px] font-bold text-slate-350 pl-8 pr-2 py-1.5 rounded-lg appearance-none focus:outline-none focus:border-lime-500/50"
-                >
+                <select v-model="sortBy"
+                  class="w-full bg-slate-950 border border-slate-800 text-[9px] font-bold text-slate-350 pl-8 pr-2 py-1.5 rounded-lg appearance-none focus:outline-none focus:border-lime-500/50">
                   <option value="rank_desc">Hạng cao nhất</option>
                   <option value="rank_asc">Hạng thấp nhất</option>
                   <option value="name">Tên (A-Z)</option>
@@ -454,12 +384,8 @@ const svgAreaPath = computed(() => {
             Không tìm thấy tay vợt phù hợp
           </div>
 
-          <div
-            v-for="player in filteredPlayers"
-            :key="player._id"
-            @click="openPlayerDetails(player)"
-            class="bg-slate-900/60 border border-slate-800/60 rounded-xl p-3 flex items-center justify-between cursor-pointer hover:border-slate-700/80 active:bg-slate-800/30 transition-all"
-          >
+          <div v-for="player in filteredPlayers" :key="player._id" @click="openPlayerDetails(player)"
+            class="bg-slate-900/60 border border-slate-800/60 rounded-xl p-3 flex items-center justify-between cursor-pointer hover:border-slate-700/80 active:bg-slate-800/30 transition-all">
             <!-- Rank & Avatar & Info -->
             <div class="flex items-center space-x-2 min-w-0">
               <!-- Rank badge/number -->
@@ -471,12 +397,10 @@ const svgAreaPath = computed(() => {
               </div>
 
               <!-- Avatar with dynamic gradient -->
-              <div
-                :class="[
-                  'w-9 h-9 rounded-full bg-gradient-to-br flex items-center justify-center text-[10px] font-black text-slate-100 shadow-md shrink-0 uppercase',
-                  getAvatarGradient(player.name),
-                ]"
-              >
+              <div :class="[
+                'w-9 h-9 rounded-full bg-gradient-to-br flex items-center justify-center text-[10px] font-black text-slate-100 shadow-md shrink-0 uppercase',
+                getAvatarGradient(player.name),
+              ]">
                 {{ getInitials(player.name) }}
               </div>
 
@@ -497,25 +421,18 @@ const svgAreaPath = computed(() => {
             <!-- Elo Score and Trend -->
             <div class="text-right shrink-0">
               <span
-                class="inline-block px-2 py-1 rounded-lg bg-slate-950 font-mono text-xs font-black text-lime-400 border border-lime-500/20"
-              >
+                class="inline-block px-2 py-1 rounded-lg bg-slate-950 font-mono text-xs font-black text-lime-400 border border-lime-500/20">
                 {{ player.current_score.toFixed(2) }}
               </span>
 
               <div class="flex items-center justify-end text-[9px] mt-1 font-bold">
-                <span
-                  v-if="player.current_score > player.initial_score"
-                  class="text-emerald-400 flex items-center"
-                >
+                <span v-if="player.current_score > player.initial_score" class="text-emerald-400 flex items-center">
                   <svg class="w-2.5 h-2.5 mr-0.5 fill-current" viewBox="0 0 24 24">
                     <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
                   </svg>
                   +{{ (player.current_score - player.initial_score).toFixed(2) }}
                 </span>
-                <span
-                  v-else-if="player.current_score < player.initial_score"
-                  class="text-red-400 flex items-center"
-                >
+                <span v-else-if="player.current_score < player.initial_score" class="text-red-400 flex items-center">
                   <svg class="w-2.5 h-2.5 mr-0.5 fill-current" viewBox="0 0 24 24">
                     <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
                   </svg>
@@ -552,11 +469,8 @@ const svgAreaPath = computed(() => {
               <div class="flex-1 h-px bg-slate-800"></div>
             </div>
 
-            <div
-              v-for="match in day.matches"
-              :key="match.id"
-              class="bg-slate-900/60 border border-slate-800/50 rounded-xl p-3 flex flex-col space-y-2 relative overflow-hidden"
-            >
+            <div v-for="match in day.matches" :key="match.id"
+              class="bg-slate-900/60 border border-slate-800/50 rounded-xl p-3 flex flex-col space-y-2 relative overflow-hidden">
               <!-- Background indicator gradient -->
               <div class="absolute top-0 bottom-0 left-0 w-1 bg-lime-500"></div>
 
@@ -565,9 +479,7 @@ const svgAreaPath = computed(() => {
                   <!-- Winner Line -->
                   <div class="flex items-center space-x-2">
                     <span
-                      class="w-3.5 h-3.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[8px] font-black flex items-center justify-center shrink-0"
-                      >W</span
-                    >
+                      class="w-3.5 h-3.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[8px] font-black flex items-center justify-center shrink-0">W</span>
                     <span class="text-xs font-bold text-slate-200">{{
                       getMatchWinnerNames(match)
                     }}</span>
@@ -578,9 +490,7 @@ const svgAreaPath = computed(() => {
                   <!-- Loser Line -->
                   <div class="flex items-center space-x-2">
                     <span
-                      class="w-3.5 h-3.5 rounded-full bg-red-500/20 text-red-400 text-[8px] font-black flex items-center justify-center shrink-0"
-                      >L</span
-                    >
+                      class="w-3.5 h-3.5 rounded-full bg-red-500/20 text-red-400 text-[8px] font-black flex items-center justify-center shrink-0">L</span>
                     <span class="text-xs font-semibold text-slate-450">{{
                       getMatchLoserNames(match)
                     }}</span>
@@ -593,8 +503,7 @@ const svgAreaPath = computed(() => {
                 <!-- Score Indicator -->
                 <div class="text-right flex flex-col justify-between h-full space-y-1">
                   <span
-                    class="inline-block px-2 py-0.5 rounded bg-slate-950 font-mono text-xs font-black text-lime-400 border border-lime-500/10"
-                  >
+                    class="inline-block px-2 py-0.5 rounded bg-slate-950 font-mono text-xs font-black text-lime-400 border border-lime-500/10">
                     {{ match.score }}
                   </span>
                   <span class="text-[8px] text-slate-500 font-bold">{{
@@ -609,126 +518,62 @@ const svgAreaPath = computed(() => {
 
       <!-- App Bottom Tab Bar & FAB -->
       <nav
-        class="absolute bottom-0 left-0 right-0 h-[64px] bg-slate-900 border-t border-slate-800/85 backdrop-blur-md flex justify-around items-center px-4 pb-2 z-30 shrink-0"
-      >
+        class="absolute bottom-0 left-0 right-0 h-[64px] bg-slate-900 border-t border-slate-800/85 backdrop-blur-md flex justify-around items-center px-4 pb-2 z-30 shrink-0">
         <!-- Leaderboard Tab trigger -->
-        <button
-          @click="currentTab = 'leaderboard'"
-          :class="[
-            'flex flex-col items-center space-y-1 transition-all focus:outline-none',
-            currentTab === 'leaderboard'
-              ? 'text-lime-400 scale-105'
-              : 'text-slate-500 hover:text-slate-300',
-          ]"
-        >
+        <button @click="currentTab = 'leaderboard'" :class="[
+          'flex flex-col items-center space-y-1 transition-all focus:outline-none',
+          currentTab === 'leaderboard'
+            ? 'text-lime-400 scale-105'
+            : 'text-slate-500 hover:text-slate-300',
+        ]">
           <!-- Trophy Icon -->
-          <svg
-            class="w-4.5 h-4.5"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M12 15v5m-3 0h6M21 8a3 3 0 00-3-3H6a3 3 0 00-3 3v2a3 3 0 003 3h12a3 3 0 003-3V8z"
-            />
+          <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M12 15v5m-3 0h6M21 8a3 3 0 00-3-3H6a3 3 0 00-3 3v2a3 3 0 003 3h12a3 3 0 003-3V8z" />
           </svg>
           <span class="text-[9px] font-extrabold uppercase tracking-wider">Hạng</span>
         </button>
 
         <!-- Dynamic Action Plus Button (FAB) -->
-        <button
-          @click="openBatchModal"
-          class="w-11 h-11 rounded-full bg-gradient-to-tr from-lime-400 to-emerald-500 text-slate-950 flex items-center justify-center shadow-lg shadow-lime-500/20 -translate-y-4 hover:scale-110 active:scale-95 transition-all focus:outline-none cursor-pointer"
-        >
+        <button @click="openBatchModal"
+          class="w-11 h-11 rounded-full bg-gradient-to-tr from-lime-400 to-emerald-500 text-slate-950 flex items-center justify-center shadow-lg shadow-lime-500/20 -translate-y-4 hover:scale-110 active:scale-95 transition-all focus:outline-none cursor-pointer">
           <!-- Plus Icon -->
           <svg class="w-5 h-5 stroke-current" fill="none" stroke-width="3.5" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
         </button>
 
-        <!-- Tuyển thủ Tab trigger -->
-        <button
-          @click="router.push('/players')"
-          class="flex flex-col items-center space-y-1 transition-all focus:outline-none text-slate-500 hover:text-slate-300"
-        >
-          <!-- Users Icon -->
-          <svg
-            class="w-4.5 h-4.5"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.109A3.318 3.318 0 0112 22.5c-1.258 0-2.4-.698-3-1.847V19.13M8.25 12h7.5m-7.5 3H12"
-            />
-          </svg>
-          <span class="text-[9px] font-extrabold uppercase tracking-wider">Tuyển thủ</span>
-        </button>
-
         <!-- Match History Tab trigger -->
-        <button
-          @click="currentTab = 'matches'"
-          :class="[
-            'flex flex-col items-center space-y-1 transition-all focus:outline-none',
-            currentTab === 'matches'
-              ? 'text-lime-400 scale-105'
-              : 'text-slate-500 hover:text-slate-300',
-          ]"
-        >
+        <button @click="currentTab = 'matches'" :class="[
+          'flex flex-col items-center space-y-1 transition-all focus:outline-none',
+          currentTab === 'matches'
+            ? 'text-lime-400 scale-105'
+            : 'text-slate-500 hover:text-slate-300',
+        ]">
           <!-- Tennis ball Activity Feed Icon -->
-          <svg
-            class="w-4.5 h-4.5"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-            />
+          <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
           <span class="text-[9px] font-extrabold uppercase tracking-wider">Trận đấu</span>
         </button>
       </nav>
 
       <!-- MODAL 1: ADD MATCH SHEET (Slide up bottom sheet panel) -->
-      <transition
-        enter-active-class="transition duration-300 ease-out"
-        enter-from-class="transform translate-y-full"
-        enter-to-class="transform translate-y-0"
-        leave-active-class="transition duration-200 ease-in"
-        leave-from-class="transform translate-y-0"
-        leave-to-class="transform translate-y-full"
-      >
-        <div
-          v-if="showAddMatchModal"
-          class="absolute inset-x-0 bottom-0 max-h-[85%] bg-slate-900 border-t border-slate-800 rounded-t-3xl shadow-2xl z-40 overflow-y-auto flex flex-col pb-6"
-        >
+      <transition enter-active-class="transition duration-300 ease-out" enter-from-class="transform translate-y-full"
+        enter-to-class="transform translate-y-0" leave-active-class="transition duration-200 ease-in"
+        leave-from-class="transform translate-y-0" leave-to-class="transform translate-y-full">
+        <div v-if="showAddMatchModal"
+          class="absolute inset-x-0 bottom-0 max-h-[85%] bg-slate-900 border-t border-slate-800 rounded-t-3xl shadow-2xl z-40 overflow-y-auto flex flex-col pb-6">
           <!-- Drag Handle -->
           <div class="w-12 h-1.5 bg-slate-700 rounded-full mx-auto my-3 shrink-0"></div>
 
           <!-- Sheet Header -->
           <div class="px-5 pb-3 flex justify-between items-center shrink-0">
             <h2 class="text-sm font-extrabold text-slate-100">Ghi nhận trận đấu</h2>
-            <button
-              @click="closeAddMatchModal"
-              class="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer"
-            >
-              <svg
-                class="w-4.5 h-4.5"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                viewBox="0 0 24 24"
-              >
+            <button @click="closeAddMatchModal"
+              class="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer">
+              <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -740,82 +585,55 @@ const svgAreaPath = computed(() => {
             <div v-if="!matchSuccessData" class="space-y-5">
               <!-- Match Day (buổi chơi) -->
               <div class="flex items-center justify-between">
-                <label class="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider"
-                  >Ngày diễn ra</label
-                >
-                <input
-                  v-model="matchDate"
-                  type="date"
-                  class="bg-slate-950 text-[10px] text-slate-200 px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-lime-500/50 transition-colors"
-                />
+                <label class="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Ngày diễn ra</label>
+                <input v-model="matchDate" type="date"
+                  class="bg-slate-950 text-[10px] text-slate-200 px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-lime-500/50 transition-colors" />
               </div>
 
               <!-- Match Type Indicator (auto-detected) -->
               <div class="flex items-center justify-between">
-                <span class="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider"
-                  >Loại trận</span
-                >
-                <span
-                  :class="[
-                    'text-[9px] font-bold px-2.5 py-1 rounded-full border transition-all',
-                    winnerIds.length === 2 || loserIds.length === 2
-                      ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400'
-                      : 'bg-lime-500/10 border-lime-500/20 text-lime-400',
-                  ]"
-                >
+                <span class="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Loại trận</span>
+                <span :class="[
+                  'text-[9px] font-bold px-2.5 py-1 rounded-full border transition-all',
+                  winnerIds.length === 2 || loserIds.length === 2
+                    ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400'
+                    : 'bg-lime-500/10 border-lime-500/20 text-lime-400',
+                ]">
                   {{ winnerIds.length === 2 || loserIds.length === 2 ? 'Đánh đôi' : 'Đánh đơn' }}
                 </span>
               </div>
 
               <!-- Select Winners -->
               <div>
-                <label
-                  class="block text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-2"
-                >
+                <label class="block text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-2">
                   Đội Thắng
-                  <span class="ml-1 text-slate-600 normal-case font-semibold"
-                    >(chọn 1–2 người)</span
-                  >
+                  <span class="ml-1 text-slate-600 normal-case font-semibold">(chọn 1–2 người)</span>
                 </label>
                 <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="p in players"
-                    :key="p._id"
-                    @click="toggleWinner(p._id)"
-                    :disabled="loserIds.includes(p._id)"
-                    :class="[
+                  <button v-for="p in players" :key="p._id" @click="toggleWinner(p._id)"
+                    :disabled="loserIds.includes(p._id)" :class="[
                       'flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold transition-all cursor-pointer',
                       winnerIds.includes(p._id)
                         ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
                         : loserIds.includes(p._id)
                           ? 'opacity-30 cursor-not-allowed bg-slate-950 border-slate-800/60 text-slate-500'
                           : 'bg-slate-950 border-slate-800/60 text-slate-400 hover:border-slate-600',
-                    ]"
-                  >
-                    <span
-                      :class="[
-                        'w-4 h-4 rounded-full bg-gradient-to-br shrink-0 flex items-center justify-center text-[7px] font-black text-white uppercase',
-                        getAvatarGradient(p.name),
-                      ]"
-                      >{{ getInitials(p.name).slice(0, 1) }}</span
-                    >
+                    ]">
+                    <span :class="[
+                      'w-4 h-4 rounded-full bg-gradient-to-br shrink-0 flex items-center justify-center text-[7px] font-black text-white uppercase',
+                      getAvatarGradient(p.name),
+                    ]">{{ getInitials(p.name).slice(0, 1) }}</span>
                     <span class="truncate max-w-[90px]">{{ p.name.split(' ').pop() }}</span>
                     <span class="font-mono text-[8px] text-slate-500 shrink-0">{{
                       p.current_score.toFixed(1)
                     }}</span>
-                    <svg
-                      v-if="winnerIds.includes(p._id)"
-                      class="w-3 h-3 fill-current text-emerald-400 shrink-0"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg v-if="winnerIds.includes(p._id)" class="w-3 h-3 fill-current text-emerald-400 shrink-0"
+                      viewBox="0 0 24 24">
                       <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                     </svg>
                   </button>
                 </div>
-                <p
-                  v-if="winnerIds.length > 0"
-                  class="mt-1.5 text-[9px] text-emerald-400 font-semibold"
-                >
+                <p v-if="winnerIds.length > 0" class="mt-1.5 text-[9px] text-emerald-400 font-semibold">
                   ✓ Đã chọn:
                   {{
                     winnerIds
@@ -839,45 +657,30 @@ const svgAreaPath = computed(() => {
 
               <!-- Select Losers -->
               <div>
-                <label
-                  class="block text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-2"
-                >
+                <label class="block text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-2">
                   Đội Thua
-                  <span class="ml-1 text-slate-600 normal-case font-semibold"
-                    >(chọn 1–2 người)</span
-                  >
+                  <span class="ml-1 text-slate-600 normal-case font-semibold">(chọn 1–2 người)</span>
                 </label>
                 <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="p in players"
-                    :key="p._id"
-                    @click="toggleLoser(p._id)"
-                    :disabled="winnerIds.includes(p._id)"
-                    :class="[
+                  <button v-for="p in players" :key="p._id" @click="toggleLoser(p._id)"
+                    :disabled="winnerIds.includes(p._id)" :class="[
                       'flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold transition-all cursor-pointer',
                       loserIds.includes(p._id)
                         ? 'bg-red-500/15 border-red-500/40 text-red-300'
                         : winnerIds.includes(p._id)
                           ? 'opacity-30 cursor-not-allowed bg-slate-950 border-slate-800/60 text-slate-500'
                           : 'bg-slate-950 border-slate-800/60 text-slate-400 hover:border-slate-600',
-                    ]"
-                  >
-                    <span
-                      :class="[
-                        'w-4 h-4 rounded-full bg-gradient-to-br shrink-0 flex items-center justify-center text-[7px] font-black text-white uppercase',
-                        getAvatarGradient(p.name),
-                      ]"
-                      >{{ getInitials(p.name).slice(0, 1) }}</span
-                    >
+                    ]">
+                    <span :class="[
+                      'w-4 h-4 rounded-full bg-gradient-to-br shrink-0 flex items-center justify-center text-[7px] font-black text-white uppercase',
+                      getAvatarGradient(p.name),
+                    ]">{{ getInitials(p.name).slice(0, 1) }}</span>
                     <span class="truncate max-w-[90px]">{{ p.name.split(' ').pop() }}</span>
                     <span class="font-mono text-[8px] text-slate-500 shrink-0">{{
                       p.current_score.toFixed(1)
                     }}</span>
-                    <svg
-                      v-if="loserIds.includes(p._id)"
-                      class="w-3 h-3 fill-current text-red-400 shrink-0"
-                      viewBox="0 0 24 24"
-                    >
+                    <svg v-if="loserIds.includes(p._id)" class="w-3 h-3 fill-current text-red-400 shrink-0"
+                      viewBox="0 0 24 24">
                       <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                     </svg>
                   </button>
@@ -899,45 +702,34 @@ const svgAreaPath = computed(() => {
 
               <!-- Select score ratio -->
               <div>
-                <label
-                  class="block text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-2"
-                  >Tỷ Số Trận Đấu</label
-                >
+                <label class="block text-[10px] font-extrabold uppercase text-slate-400 tracking-wider mb-2">Tỷ Số Trận
+                  Đấu</label>
                 <div class="grid grid-cols-4 gap-2">
-                  <button
-                    v-for="sc in ['6-4', '6-3', '6-2', '6-1', '6-0', '7-5', '7-6']"
-                    :key="sc"
-                    @click="setScore = sc"
-                    :class="[
+                  <button v-for="sc in ['6-4', '6-3', '6-2', '6-1', '6-0', '7-5', '7-6']" :key="sc"
+                    @click="setScore = sc" :class="[
                       'py-2.5 text-[10px] font-bold rounded-xl border transition-all text-center cursor-pointer',
                       setScore === sc
                         ? 'bg-lime-500 border-lime-500 text-slate-950'
                         : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200',
-                    ]"
-                  >
+                    ]">
                     {{ sc }}
                   </button>
                 </div>
               </div>
 
               <!-- Error Box -->
-              <div
-                v-if="formError"
-                class="bg-red-950/40 border border-red-500/20 text-red-400 text-[10px] font-semibold px-4 py-3 rounded-xl flex items-center space-x-2"
-              >
+              <div v-if="formError"
+                class="bg-red-950/40 border border-red-500/20 text-red-400 text-[10px] font-semibold px-4 py-3 rounded-xl flex items-center space-x-2">
                 <svg class="w-4 h-4 shrink-0 fill-current" viewBox="0 0 24 24">
                   <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
-                  />
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
                 </svg>
                 <span>{{ formError }}</span>
               </div>
 
               <!-- Submit button -->
-              <button
-                @click="submitMatch"
-                class="w-full bg-gradient-to-r from-lime-400 to-emerald-500 text-slate-950 font-extrabold text-xs py-3.5 rounded-xl hover:opacity-95 active:scale-[0.98] transition-all shadow-lg shadow-lime-500/10 focus:outline-none cursor-pointer"
-              >
+              <button @click="submitMatch"
+                class="w-full bg-gradient-to-r from-lime-400 to-emerald-500 text-slate-950 font-extrabold text-xs py-3.5 rounded-xl hover:opacity-95 active:scale-[0.98] transition-all shadow-lg shadow-lime-500/10 focus:outline-none cursor-pointer">
                 Ghi Nhận & Tính Elo
               </button>
             </div>
@@ -945,14 +737,8 @@ const svgAreaPath = computed(() => {
             <!-- SUCCESS SIMULATION SUMMARY VIEW -->
             <div v-else class="space-y-6 py-4 text-center">
               <div
-                class="w-14 h-14 bg-emerald-500/15 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto text-emerald-400"
-              >
-                <svg
-                  class="w-7 h-7 stroke-current"
-                  fill="none"
-                  stroke-width="3"
-                  viewBox="0 0 24 24"
-                >
+                class="w-14 h-14 bg-emerald-500/15 border border-emerald-500/20 rounded-full flex items-center justify-center mx-auto text-emerald-400">
+                <svg class="w-7 h-7 stroke-current" fill="none" stroke-width="3" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
               </div>
@@ -967,16 +753,11 @@ const svgAreaPath = computed(() => {
               <!-- Elo updates showcard -->
               <div class="bg-slate-950 rounded-2xl p-4 border border-slate-800 space-y-2">
                 <!-- Winners -->
-                <div
-                  v-for="w in matchSuccessData.winners"
-                  :key="w.name"
-                  class="flex justify-between items-center py-2 border-b border-slate-900 last:border-0"
-                >
+                <div v-for="w in matchSuccessData.winners" :key="w.name"
+                  class="flex justify-between items-center py-2 border-b border-slate-900 last:border-0">
                   <div class="flex items-center space-x-1.5">
                     <span
-                      class="inline-block px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[8px] font-extrabold uppercase"
-                      >W</span
-                    >
+                      class="inline-block px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[8px] font-extrabold uppercase">W</span>
                     <span class="text-xs font-bold text-slate-200">{{
                       w.name.split(' ').pop()
                     }}</span>
@@ -985,9 +766,8 @@ const svgAreaPath = computed(() => {
                     <span class="text-slate-500 text-[10px]">{{ w.oldElo.toFixed(2) }}</span>
                     <span class="text-slate-400">→</span>
                     <span class="text-lime-400 font-bold">{{ w.newElo.toFixed(2) }}</span>
-                    <span class="text-emerald-400 text-[9px] font-bold"
-                      >(+{{ matchSuccessData.change.toFixed(2) }})</span
-                    >
+                    <span class="text-emerald-400 text-[9px] font-bold">(+{{ matchSuccessData.change.toFixed(2)
+                    }})</span>
                   </div>
                 </div>
 
@@ -999,16 +779,11 @@ const svgAreaPath = computed(() => {
                 </div>
 
                 <!-- Losers -->
-                <div
-                  v-for="l in matchSuccessData.losers"
-                  :key="l.name"
-                  class="flex justify-between items-center py-2 border-b border-slate-900 last:border-0"
-                >
+                <div v-for="l in matchSuccessData.losers" :key="l.name"
+                  class="flex justify-between items-center py-2 border-b border-slate-900 last:border-0">
                   <div class="flex items-center space-x-1.5">
                     <span
-                      class="inline-block px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 text-[8px] font-extrabold uppercase"
-                      >L</span
-                    >
+                      class="inline-block px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 text-[8px] font-extrabold uppercase">L</span>
                     <span class="text-xs font-semibold text-slate-400">{{
                       l.name.split(' ').pop()
                     }}</span>
@@ -1017,17 +792,13 @@ const svgAreaPath = computed(() => {
                     <span class="text-slate-500 text-[10px]">{{ l.oldElo.toFixed(2) }}</span>
                     <span class="text-slate-400">→</span>
                     <span class="text-red-400 font-bold">{{ l.newElo.toFixed(2) }}</span>
-                    <span class="text-red-400 text-[9px] font-bold"
-                      >(-{{ matchSuccessData.change.toFixed(2) }})</span
-                    >
+                    <span class="text-red-400 text-[9px] font-bold">(-{{ matchSuccessData.change.toFixed(2) }})</span>
                   </div>
                 </div>
               </div>
 
-              <button
-                @click="closeAddMatchModal"
-                class="w-full bg-slate-800 text-slate-200 font-bold text-xs py-3.5 rounded-xl hover:bg-slate-700 transition-all border border-slate-700/50 cursor-pointer"
-              >
+              <button @click="closeAddMatchModal"
+                class="w-full bg-slate-800 text-slate-200 font-bold text-xs py-3.5 rounded-xl hover:bg-slate-700 transition-all border border-slate-700/50 cursor-pointer">
                 Hoàn Tất
               </button>
             </div>
@@ -1036,25 +807,15 @@ const svgAreaPath = computed(() => {
       </transition>
 
       <!-- Backdrop for Modal 1 (Simulate Match Sheet) -->
-      <div
-        v-if="showAddMatchModal"
-        @click="closeAddMatchModal"
-        class="absolute inset-0 bg-slate-950/80 backdrop-blur-xs z-35"
-      ></div>
+      <div v-if="showAddMatchModal" @click="closeAddMatchModal"
+        class="absolute inset-0 bg-slate-950/80 backdrop-blur-xs z-35"></div>
 
       <!-- MODAL 2: PLAYER PROFILE DETAILS (Full detail view & Elo graph) -->
-      <transition
-        enter-active-class="transition duration-300 ease-out"
-        enter-from-class="transform translate-y-full"
-        enter-to-class="transform translate-y-0"
-        leave-active-class="transition duration-200 ease-in"
-        leave-from-class="transform translate-y-0"
-        leave-to-class="transform translate-y-full"
-      >
-        <div
-          v-if="showDetailModal && activePlayer"
-          class="absolute inset-x-0 bottom-0 h-[88%] bg-slate-900 border-t border-slate-800 rounded-t-3xl shadow-2xl z-40 overflow-y-auto flex flex-col pb-8"
-        >
+      <transition enter-active-class="transition duration-300 ease-out" enter-from-class="transform translate-y-full"
+        enter-to-class="transform translate-y-0" leave-active-class="transition duration-200 ease-in"
+        leave-from-class="transform translate-y-0" leave-to-class="transform translate-y-full">
+        <div v-if="showDetailModal && activePlayer"
+          class="absolute inset-x-0 bottom-0 h-[88%] bg-slate-900 border-t border-slate-800 rounded-t-3xl shadow-2xl z-40 overflow-y-auto flex flex-col pb-8">
           <!-- Drag Handle -->
           <div class="w-12 h-1.5 bg-slate-700 rounded-full mx-auto my-3 shrink-0"></div>
 
@@ -1063,17 +824,9 @@ const svgAreaPath = computed(() => {
             <h2 class="text-[10px] font-bold uppercase tracking-wider text-slate-400">
               Chi tiết Tay Vợt
             </h2>
-            <button
-              @click="showDetailModal = false"
-              class="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer"
-            >
-              <svg
-                class="w-4.5 h-4.5"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                viewBox="0 0 24 24"
-              >
+            <button @click="showDetailModal = false"
+              class="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer">
+              <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -1083,24 +836,20 @@ const svgAreaPath = computed(() => {
           <div class="flex-1 px-5 space-y-5 overflow-y-auto">
             <!-- Player Avatar Header -->
             <div class="flex items-center space-x-4">
-              <div
-                :class="[
-                  'w-14 h-14 rounded-2xl bg-gradient-to-br flex items-center justify-center text-lg font-black text-slate-100 shadow-lg uppercase shrink-0',
-                  getAvatarGradient(activePlayer.name),
-                ]"
-              >
+              <div :class="[
+                'w-14 h-14 rounded-2xl bg-gradient-to-br flex items-center justify-center text-lg font-black text-slate-100 shadow-lg uppercase shrink-0',
+                getAvatarGradient(activePlayer.name),
+              ]">
                 {{ getInitials(activePlayer.name) }}
               </div>
               <div>
                 <h2 class="text-sm font-bold text-slate-100">{{ activePlayer.name }}</h2>
                 <div class="flex items-center space-x-2 mt-1">
-                  <span class="inline-block text-[9px] text-slate-400 font-bold"
-                    >Hạng: #{{ getPlayerRank(activePlayer._id) }}</span
-                  >
+                  <span class="inline-block text-[9px] text-slate-400 font-bold">Hạng: #{{
+                    getPlayerRank(activePlayer._id) }}</span>
                   <span class="w-1 h-1 rounded-full bg-slate-700"></span>
-                  <span class="inline-block text-[9px] text-slate-400 font-bold"
-                    >Gia nhập: {{ formatDate(activePlayer.created_at) }}</span
-                  >
+                  <span class="inline-block text-[9px] text-slate-400 font-bold">Gia nhập: {{
+                    formatDate(activePlayer.created_at) }}</span>
                 </div>
               </div>
             </div>
@@ -1108,31 +857,21 @@ const svgAreaPath = computed(() => {
             <!-- Stats Panel Grid -->
             <div class="grid grid-cols-3 gap-2.5">
               <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center">
-                <span class="text-[8px] uppercase font-bold text-slate-400 tracking-wider"
-                  >Elo Hiện Tại</span
-                >
+                <span class="text-[8px] uppercase font-bold text-slate-400 tracking-wider">Elo Hiện Tại</span>
                 <p class="text-sm font-extrabold text-lime-400 mt-0.5">
                   {{ activePlayer.current_score.toFixed(2) }}
                 </p>
-                <span class="text-[8px] text-slate-500"
-                  >Mặc định: {{ activePlayer.initial_score.toFixed(2) }}</span
-                >
+                <span class="text-[8px] text-slate-500">Mặc định: {{ activePlayer.initial_score.toFixed(2) }}</span>
               </div>
               <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center">
-                <span class="text-[8px] uppercase font-bold text-slate-400 tracking-wider"
-                  >Thắng - Thua</span
-                >
+                <span class="text-[8px] uppercase font-bold text-slate-400 tracking-wider">Thắng - Thua</span>
                 <p class="text-sm font-extrabold text-slate-200 mt-0.5">
                   {{ activePlayer.wins }} - {{ activePlayer.losses }}
                 </p>
-                <span class="text-[8px] text-slate-500"
-                  >Tổng: {{ activePlayer.matches_played }} trận</span
-                >
+                <span class="text-[8px] text-slate-500">Tổng: {{ activePlayer.matches_played }} trận</span>
               </div>
               <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center">
-                <span class="text-[8px] uppercase font-bold text-slate-400 tracking-wider"
-                  >Tỷ Lệ Thắng</span
-                >
+                <span class="text-[8px] uppercase font-bold text-slate-400 tracking-wider">Tỷ Lệ Thắng</span>
                 <p class="text-sm font-extrabold text-slate-200 mt-0.5">
                   {{
                     activePlayer.matches_played > 0
@@ -1140,28 +879,20 @@ const svgAreaPath = computed(() => {
                       : 0
                   }}%
                 </p>
-                <span class="text-[8px] text-slate-500"
-                  >Hiệu số: {{ activePlayer.wins - activePlayer.losses }}</span
-                >
+                <span class="text-[8px] text-slate-500">Hiệu số: {{ activePlayer.wins - activePlayer.losses }}</span>
               </div>
             </div>
 
             <!-- SVG history Rating trend curve graph (Pure CSS custom graph) -->
             <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
               <div class="flex justify-between items-center mb-3">
-                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider"
-                  >Biểu đồ Elo</span
-                >
+                <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Biểu đồ Elo</span>
                 <!-- Hover status tooltip detail -->
-                <span
-                  v-if="hoveredChartPoint"
-                  class="text-[9px] bg-lime-500/10 border border-lime-500/20 text-lime-400 font-semibold px-2 py-0.5 rounded-md"
-                >
+                <span v-if="hoveredChartPoint"
+                  class="text-[9px] bg-lime-500/10 border border-lime-500/20 text-lime-400 font-semibold px-2 py-0.5 rounded-md">
                   Trận {{ hoveredChartPoint.idx + 1 }}: {{ hoveredChartPoint.val.toFixed(2) }}
                 </span>
-                <span v-else class="text-[9px] text-slate-500 font-bold"
-                  >Rê chuột vào điểm để xem</span
-                >
+                <span v-else class="text-[9px] text-slate-500 font-bold">Rê chuột vào điểm để xem</span>
               </div>
 
               <div v-if="activePlayer.history && activePlayer.history.length > 0" class="relative">
@@ -1183,34 +914,18 @@ const svgAreaPath = computed(() => {
                   <path v-if="chartPoints.length > 1" :d="svgAreaPath" fill="url(#chartGrad)" />
 
                   <!-- Actual Line -->
-                  <path
-                    :d="svgLinePath"
-                    fill="none"
-                    stroke="#a3e635"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
+                  <path :d="svgLinePath" fill="none" stroke="#a3e635" stroke-width="2.5" stroke-linecap="round"
+                    stroke-linejoin="round" />
 
                   <!-- Circles on coordinates -->
-                  <circle
-                    v-for="(point, idx) in chartPoints"
-                    :key="idx"
-                    :cx="point.x"
-                    :cy="point.y"
+                  <circle v-for="(point, idx) in chartPoints" :key="idx" :cx="point.x" :cy="point.y"
                     :r="hoveredChartPoint?.idx === idx ? 5.5 : 3"
-                    :fill="hoveredChartPoint?.idx === idx ? '#a3e635' : '#090d16'"
-                    stroke="#a3e635"
-                    stroke-width="2"
+                    :fill="hoveredChartPoint?.idx === idx ? '#a3e635' : '#090d16'" stroke="#a3e635" stroke-width="2"
                     class="transition-all duration-150 cursor-pointer"
-                    @mouseover="hoveredChartPoint = { ...point, idx }"
-                    @mouseleave="hoveredChartPoint = null"
-                  />
+                    @mouseover="hoveredChartPoint = { ...point, idx }" @mouseleave="hoveredChartPoint = null" />
                 </svg>
 
-                <div
-                  class="flex justify-between mt-2.5 text-[8px] text-slate-500 font-bold uppercase tracking-wider"
-                >
+                <div class="flex justify-between mt-2.5 text-[8px] text-slate-500 font-bold uppercase tracking-wider">
                   <span>Khởi đầu ({{ activePlayer.initial_score.toFixed(2) }})</span>
                   <span>{{ activePlayer.history.length }} mốc điểm</span>
                   <span>Hiện tại ({{ activePlayer.current_score.toFixed(2) }})</span>
@@ -1227,28 +942,20 @@ const svgAreaPath = computed(() => {
                 Lịch sử đấu
               </h3>
 
-              <div
-                v-if="playerMatchHistory.length === 0"
-                class="text-center py-6 text-xs text-slate-500"
-              >
+              <div v-if="playerMatchHistory.length === 0" class="text-center py-6 text-xs text-slate-500">
                 Chưa có dữ liệu trận đấu cho tay vợt này.
               </div>
 
-              <div
-                v-for="m in playerMatchHistory.slice(0, 5)"
-                :key="m.id"
-                class="bg-slate-950 rounded-xl p-2.5 border border-slate-900 flex justify-between items-center text-xs"
-              >
+              <div v-for="m in playerMatchHistory.slice(0, 5)" :key="m.id"
+                class="bg-slate-950 rounded-xl p-2.5 border border-slate-900 flex justify-between items-center text-xs">
                 <!-- Match result details -->
                 <div class="flex items-center space-x-2">
-                  <span
-                    :class="[
-                      'w-10 text-center py-0.5 rounded text-[8px] font-extrabold uppercase',
-                      isPlayerWinner(m, activePlayer._id)
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                        : 'bg-red-500/10 text-red-400 border border-red-500/20',
-                    ]"
-                  >
+                  <span :class="[
+                    'w-10 text-center py-0.5 rounded text-[8px] font-extrabold uppercase',
+                    isPlayerWinner(m, activePlayer._id)
+                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                      : 'bg-red-500/10 text-red-400 border border-red-500/20',
+                  ]">
                     {{ isPlayerWinner(m, activePlayer._id) ? 'Thắng' : 'Thua' }}
                   </span>
 
@@ -1262,18 +969,14 @@ const svgAreaPath = computed(() => {
                 </div>
 
                 <div class="flex items-center space-x-3">
-                  <span
-                    class="font-mono text-[10px] font-bold text-slate-350 bg-slate-900 px-2 py-0.5 rounded"
-                  >
+                  <span class="font-mono text-[10px] font-bold text-slate-350 bg-slate-900 px-2 py-0.5 rounded">
                     {{ m.score }}
                   </span>
 
-                  <span
-                    :class="[
-                      'font-mono text-[10px] font-bold',
-                      isPlayerWinner(m, activePlayer._id) ? 'text-emerald-400' : 'text-red-400',
-                    ]"
-                  >
+                  <span :class="[
+                    'font-mono text-[10px] font-bold',
+                    isPlayerWinner(m, activePlayer._id) ? 'text-emerald-400' : 'text-red-400',
+                  ]">
                     {{
                       isPlayerWinner(m, activePlayer._id)
                         ? `+${m.elo_change.toFixed(2)}`
@@ -1288,25 +991,15 @@ const svgAreaPath = computed(() => {
       </transition>
 
       <!-- Backdrop for Modal 2 (Player Profile Details Sheet) -->
-      <div
-        v-if="showDetailModal"
-        @click="showDetailModal = false"
-        class="absolute inset-0 bg-slate-950/80 backdrop-blur-xs z-35"
-      ></div>
+      <div v-if="showDetailModal" @click="showDetailModal = false"
+        class="absolute inset-0 bg-slate-950/80 backdrop-blur-xs z-35"></div>
 
       <!-- MODAL 3: BATCH UPDATE ELO SHEET -->
-      <transition
-        enter-active-class="transition duration-300 ease-out"
-        enter-from-class="transform translate-y-full"
-        enter-to-class="transform translate-y-0"
-        leave-active-class="transition duration-200 ease-in"
-        leave-from-class="transform translate-y-0"
-        leave-to-class="transform translate-y-full"
-      >
-        <div
-          v-if="showBatchModal"
-          class="absolute inset-x-0 bottom-0 max-h-[90%] bg-slate-900 border-t border-slate-800 rounded-t-3xl shadow-2xl z-40 overflow-y-auto flex flex-col pb-6"
-        >
+      <transition enter-active-class="transition duration-300 ease-out" enter-from-class="transform translate-y-full"
+        enter-to-class="transform translate-y-0" leave-active-class="transition duration-200 ease-in"
+        leave-from-class="transform translate-y-0" leave-to-class="transform translate-y-full">
+        <div v-if="showBatchModal"
+          class="absolute inset-x-0 bottom-0 max-h-[90%] bg-slate-900 border-t border-slate-800 rounded-t-3xl shadow-2xl z-40 overflow-y-auto flex flex-col pb-6">
           <!-- Drag Handle -->
           <div class="w-12 h-1.5 bg-slate-700 rounded-full mx-auto my-3 shrink-0"></div>
 
@@ -1318,17 +1011,9 @@ const svgAreaPath = computed(() => {
                 Mỗi buổi 2 trận · Nhập số thắng · Thua = 2 − Thắng
               </p>
             </div>
-            <button
-              @click="closeBatchModal"
-              class="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer"
-            >
-              <svg
-                class="w-4.5 h-4.5"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                viewBox="0 0 24 24"
-              >
+            <button @click="closeBatchModal"
+              class="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer">
+              <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -1339,14 +1024,8 @@ const svgAreaPath = computed(() => {
             <!-- SUCCESS VIEW -->
             <div v-if="batchSuccessData" class="space-y-5 py-2 text-center">
               <div
-                class="w-14 h-14 bg-lime-500/15 border border-lime-500/20 rounded-full flex items-center justify-center mx-auto text-lime-400"
-              >
-                <svg
-                  class="w-7 h-7 stroke-current"
-                  fill="none"
-                  stroke-width="3"
-                  viewBox="0 0 24 24"
-                >
+                class="w-14 h-14 bg-lime-500/15 border border-lime-500/20 rounded-full flex items-center justify-center mx-auto text-lime-400">
+                <svg class="w-7 h-7 stroke-current" fill="none" stroke-width="3" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                 </svg>
               </div>
@@ -1358,29 +1037,18 @@ const svgAreaPath = computed(() => {
               </div>
 
               <!-- Changes Summary -->
-              <div
-                class="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden text-left"
-              >
+              <div class="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden text-left">
                 <div class="px-4 py-2 border-b border-slate-800 flex justify-between">
-                  <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider"
-                    >Người chơi</span
-                  >
-                  <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider"
-                    >Biến động Elo</span
-                  >
+                  <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Người chơi</span>
+                  <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Biến động Elo</span>
                 </div>
-                <div
-                  v-for="c in batchSuccessData.changes"
-                  :key="c.member_id"
-                  class="px-4 py-2.5 border-b border-slate-900/60 last:border-0 flex justify-between items-center"
-                >
+                <div v-for="c in batchSuccessData.changes" :key="c.member_id"
+                  class="px-4 py-2.5 border-b border-slate-900/60 last:border-0 flex justify-between items-center">
                   <div class="flex items-center space-x-2">
-                    <div
-                      :class="[
-                        'w-6 h-6 rounded-full bg-gradient-to-br flex items-center justify-center text-[7px] font-black text-white uppercase shrink-0',
-                        getAvatarGradient(c.name),
-                      ]"
-                    >
+                    <div :class="[
+                      'w-6 h-6 rounded-full bg-gradient-to-br flex items-center justify-center text-[7px] font-black text-white uppercase shrink-0',
+                      getAvatarGradient(c.name),
+                    ]">
                       {{ getInitials(c.name).slice(0, 1) }}
                     </div>
                     <span class="text-xs font-bold text-slate-200">{{
@@ -1389,26 +1057,22 @@ const svgAreaPath = computed(() => {
                   </div>
                   <div class="font-mono text-xs flex items-center space-x-1.5">
                     <span class="text-slate-500 text-[10px]">→ {{ c.elo_after.toFixed(2) }}</span>
-                    <span
-                      :class="[
-                        'text-[10px] font-bold px-1.5 py-0.5 rounded',
-                        c.elo_gain > 0
-                          ? 'bg-emerald-500/10 text-emerald-400'
-                          : c.elo_gain < 0
-                            ? 'bg-red-500/10 text-red-400'
-                            : 'bg-slate-800 text-slate-500',
-                      ]"
-                    >
+                    <span :class="[
+                      'text-[10px] font-bold px-1.5 py-0.5 rounded',
+                      c.elo_gain > 0
+                        ? 'bg-emerald-500/10 text-emerald-400'
+                        : c.elo_gain < 0
+                          ? 'bg-red-500/10 text-red-400'
+                          : 'bg-slate-800 text-slate-500',
+                    ]">
                       {{ c.elo_gain > 0 ? '+' : '' }}{{ c.elo_gain.toFixed(2) }}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <button
-                @click="closeBatchModal"
-                class="w-full bg-slate-800 text-slate-200 font-bold text-xs py-3.5 rounded-xl hover:bg-slate-700 transition-all border border-slate-700/50 cursor-pointer"
-              >
+              <button @click="closeBatchModal"
+                class="w-full bg-slate-800 text-slate-200 font-bold text-xs py-3.5 rounded-xl hover:bg-slate-700 transition-all border border-slate-700/50 cursor-pointer">
                 Hoàn Tất
               </button>
             </div>
@@ -1416,28 +1080,12 @@ const svgAreaPath = computed(() => {
             <!-- INPUT FORM VIEW -->
             <div v-else class="space-y-4">
               <!-- Link/Button to Switch to Single Match Recording -->
-              <div
-                class="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800/80"
-              >
-                <span class="text-[10px] text-slate-400 font-semibold"
-                  >Ghi nhận riêng lẻ từng trận đấu?</span
-                >
-                <button
-                  @click="openAddMatchFromBatch"
-                  class="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-lime-500/10 hover:bg-lime-500/20 text-lime-400 text-[9px] font-extrabold transition-all border border-lime-500/25 cursor-pointer uppercase tracking-wider"
-                >
-                  <svg
-                    class="w-3 h-3"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="3"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 4.5v15m7.5-7.5h-15"
-                    />
+              <div class="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                <span class="text-[10px] text-slate-400 font-semibold">Ghi nhận riêng lẻ từng trận đấu?</span>
+                <button @click="openAddMatchFromBatch"
+                  class="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-lime-500/10 hover:bg-lime-500/20 text-lime-400 text-[9px] font-extrabold transition-all border border-lime-500/25 cursor-pointer uppercase tracking-wider">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                   </svg>
                   <span>Ghi nhận trận đấu</span>
                 </button>
@@ -1446,57 +1094,51 @@ const svgAreaPath = computed(() => {
               <!-- Date & Note fields -->
               <div class="grid grid-cols-2 gap-3">
                 <div>
-                  <label
-                    class="block text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-1.5"
-                    >Ngày diễn ra</label
-                  >
-                  <input
-                    v-model="batchDate"
-                    type="date"
-                    class="w-full bg-slate-950 text-[10px] text-slate-200 px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-lime-500/50 transition-colors"
-                  />
+                  <label class="block text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-1.5">Ngày diễn
+                    ra</label>
+                  <input v-model="batchDate" type="date"
+                    class="w-full bg-slate-950 text-[10px] text-slate-200 px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-lime-500/50 transition-colors" />
                 </div>
                 <div>
-                  <label
-                    class="block text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-1.5"
-                    >Ghi chú buổi</label
-                  >
-                  <input
-                    v-model="batchNote"
-                    type="text"
-                    placeholder="VD: Buổi 1 - Khai mạc Q3"
-                    class="w-full bg-slate-950 text-[10px] text-slate-200 px-3 py-2 rounded-xl border border-slate-800 placeholder-slate-600 focus:outline-none focus:border-lime-500/50 transition-colors"
-                  />
+                  <label class="block text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-1.5">Ghi chú
+                    buổi</label>
+                  <input v-model="batchNote" type="text" placeholder="VD: Buổi 1 - Khai mạc Q3"
+                    class="w-full bg-slate-950 text-[10px] text-slate-200 px-3 py-2 rounded-xl border border-slate-800 placeholder-slate-600 focus:outline-none focus:border-lime-500/50 transition-colors" />
                 </div>
               </div>
 
               <!-- Quarter Preview -->
-              <div
-                class="flex items-center space-x-2 px-3 py-2 bg-lime-500/5 border border-lime-500/15 rounded-xl"
-              >
+              <div class="flex items-center space-x-2 px-3 py-2 bg-lime-500/5 border border-lime-500/15 rounded-xl">
                 <svg class="w-3 h-3 text-lime-500 shrink-0" fill="currentColor" viewBox="0 0 24 24">
                   <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"
-                  />
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" />
                 </svg>
-                <span class="text-[9px] text-lime-400 font-bold"
-                  >Quý: {{ getQuarter(batchDate) }}</span
-                >
+                <span class="text-[9px] text-lime-400 font-bold">Quý: {{ getQuarter(batchDate) }}</span>
+              </div>
+
+              <!-- Season selector -->
+              <div>
+                <label class="block text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-1.5">Mùa
+                  giải</label>
+                <select v-model="batchSeasonId"
+                  class="w-full bg-slate-950 border border-slate-800 text-[10px] font-semibold text-slate-200 px-3 py-2 rounded-xl appearance-none focus:outline-none focus:border-lime-500/50">
+                  <option :value="null">Không thuộc mùa giải nào</option>
+                  <option v-for="season in seasons" :key="season._id" :value="season._id">
+                    {{ season.name }}
+                  </option>
+                </select>
               </div>
 
               <!-- Divider -->
               <div class="flex items-center space-x-3">
                 <div class="flex-1 h-px bg-slate-800"></div>
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest"
-                  >Kết quả từng người</span
-                >
+                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Kết quả từng người</span>
                 <div class="flex-1 h-px bg-slate-800"></div>
               </div>
 
               <!-- ELO Info badge -->
               <div
-                class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[9px] text-slate-500 font-semibold"
-              >
+                class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[9px] text-slate-500 font-semibold">
                 <span class="flex items-center space-x-1">
                   <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
                   <span>2 thắng = +0.50</span>
@@ -1520,28 +1162,22 @@ const svgAreaPath = computed(() => {
 
               <!-- Player Entries Grid -->
               <div class="space-y-2">
-                <div
-                  v-for="entry in batchEntries"
-                  :key="entry.player_id"
-                  :class="[
-                    'border rounded-xl p-3 transition-all',
-                    entry.offline
-                      ? 'bg-slate-950/50 border-slate-700/30 opacity-60'
-                      : 'bg-slate-950 border-slate-800/60',
-                  ]"
-                >
+                <div v-for="entry in batchEntries" :key="entry.player_id" :class="[
+                  'border rounded-xl p-3 transition-all',
+                  entry.offline
+                    ? 'bg-slate-950/50 border-slate-700/30 opacity-60'
+                    : 'bg-slate-950 border-slate-800/60',
+                ]">
                   <div class="flex items-center justify-between">
                     <!-- Player info -->
                     <div class="flex items-center space-x-2 min-w-0">
-                      <div
-                        :class="[
-                          'w-7 h-7 rounded-full bg-gradient-to-br flex items-center justify-center text-[8px] font-black text-white uppercase shrink-0 transition-all',
-                          getAvatarGradient(
-                            players.find((p) => p._id === entry.player_id)?.name || '',
-                          ),
-                          entry.offline ? 'grayscale opacity-50' : '',
-                        ]"
-                      >
+                      <div :class="[
+                        'w-7 h-7 rounded-full bg-gradient-to-br flex items-center justify-center text-[8px] font-black text-white uppercase shrink-0 transition-all',
+                        getAvatarGradient(
+                          players.find((p) => p._id === entry.player_id)?.name || '',
+                        ),
+                        entry.offline ? 'grayscale opacity-50' : '',
+                      ]">
                         {{
                           getInitials(
                             players.find((p) => p._id === entry.player_id)?.name || '',
@@ -1558,30 +1194,24 @@ const svgAreaPath = computed(() => {
                           }}
                         </p>
                         <p class="text-[8px] font-mono">
-                          <span class="text-slate-500"
-                            >Elo:
+                          <span class="text-slate-500">Elo:
                             {{
                               players
                                 .find((p) => p._id === entry.player_id)
                                 ?.current_score.toFixed(2)
-                            }}</span
-                          >
+                            }}</span>
                           <!-- Preview delta -->
-                          <span
-                            :class="[
-                              'ml-1 font-bold transition-all',
-                              getBatchEloPreview(entry) > 0
-                                ? 'text-emerald-400'
-                                : getBatchEloPreview(entry) < 0
-                                  ? 'text-red-400'
-                                  : 'text-slate-500',
-                            ]"
-                          >
+                          <span :class="[
+                            'ml-1 font-bold transition-all',
+                            getBatchEloPreview(entry) > 0
+                              ? 'text-emerald-400'
+                              : getBatchEloPreview(entry) < 0
+                                ? 'text-red-400'
+                                : 'text-slate-500',
+                          ]">
                             {{ getBatchEloPreview(entry) >= 0 ? '+' : ''
                             }}{{ getBatchEloPreview(entry).toFixed(2) }}
-                            <span v-if="entry.offline" class="text-slate-500 ml-0.5"
-                              >(offline)</span
-                            >
+                            <span v-if="entry.offline" class="text-slate-500 ml-0.5">(offline)</span>
                           </span>
                         </p>
                       </div>
@@ -1592,68 +1222,48 @@ const svgAreaPath = computed(() => {
                       <!-- Wins counter (only when online) -->
                       <div v-if="!entry.offline" class="flex items-center space-x-1.5">
                         <span class="text-[8px] font-bold text-slate-400 uppercase">Thắng</span>
-                        <div
-                          class="flex items-center bg-slate-900 border border-slate-800 rounded-lg overflow-hidden"
-                        >
-                          <button
-                            @click="entry.wins = Math.max(0, entry.wins - 1)"
-                            class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all text-sm font-bold cursor-pointer"
-                          >
+                        <div class="flex items-center bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
+                          <button @click="entry.wins = Math.max(0, entry.wins - 1)"
+                            class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all text-sm font-bold cursor-pointer">
                             −
                           </button>
-                          <span
-                            :class="[
-                              'w-5 text-center text-[10px] font-black',
-                              entry.wins === 2
-                                ? 'text-emerald-400'
-                                : entry.wins === 1
-                                  ? 'text-yellow-400'
-                                  : 'text-red-400',
-                            ]"
-                            >{{ entry.wins }}</span
-                          >
-                          <button
-                            @click="entry.wins = Math.min(2, entry.wins + 1)"
-                            class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all text-sm font-bold cursor-pointer"
-                          >
+                          <span :class="[
+                            'w-5 text-center text-[10px] font-black',
+                            entry.wins === 2
+                              ? 'text-emerald-400'
+                              : entry.wins === 1
+                                ? 'text-yellow-400'
+                                : 'text-red-400',
+                          ]">{{ entry.wins }}</span>
+                          <button @click="entry.wins = Math.min(2, entry.wins + 1)"
+                            class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all text-sm font-bold cursor-pointer">
                             +
                           </button>
                         </div>
                         <!-- Auto losses display -->
-                        <span class="text-[8px] text-slate-600 font-mono"
-                          >/ {{ 2 - entry.wins }}L</span
-                        >
+                        <span class="text-[8px] text-slate-600 font-mono">/ {{ 2 - entry.wins }}L</span>
                       </div>
 
                       <!-- Offline penalty label -->
-                      <div
-                        v-else
-                        class="text-[9px] font-bold text-red-400/70 bg-red-500/5 border border-red-500/15 px-2 py-1 rounded-lg"
-                      >
+                      <div v-else
+                        class="text-[9px] font-bold text-red-400/70 bg-red-500/5 border border-red-500/15 px-2 py-1 rounded-lg">
                         −0.25
                       </div>
 
                       <!-- Offline toggle checkbox -->
                       <label class="flex items-center space-x-1.5 cursor-pointer group">
                         <span
-                          class="text-[8px] text-slate-500 group-hover:text-slate-300 transition-colors font-bold uppercase"
-                          >Off</span
-                        >
-                        <div
-                          @click="toggleOffline(entry)"
-                          :class="[
-                            'w-8 h-4 rounded-full border transition-all cursor-pointer relative',
-                            entry.offline
-                              ? 'bg-red-500/20 border-red-500/40'
-                              : 'bg-slate-800 border-slate-700',
-                          ]"
-                        >
-                          <div
-                            :class="[
-                              'absolute top-0.5 w-3 h-3 rounded-full transition-all',
-                              entry.offline ? 'left-4 bg-red-400' : 'left-0.5 bg-slate-500',
-                            ]"
-                          ></div>
+                          class="text-[8px] text-slate-500 group-hover:text-slate-300 transition-colors font-bold uppercase">Off</span>
+                        <div @click="toggleOffline(entry)" :class="[
+                          'w-8 h-4 rounded-full border transition-all cursor-pointer relative',
+                          entry.offline
+                            ? 'bg-red-500/20 border-red-500/40'
+                            : 'bg-slate-800 border-slate-700',
+                        ]">
+                          <div :class="[
+                            'absolute top-0.5 w-3 h-3 rounded-full transition-all',
+                            entry.offline ? 'left-4 bg-red-400' : 'left-0.5 bg-slate-500',
+                          ]"></div>
                         </div>
                       </label>
                     </div>
@@ -1662,31 +1272,24 @@ const svgAreaPath = computed(() => {
               </div>
 
               <!-- Error Box -->
-              <div
-                v-if="batchError"
-                class="bg-red-950/40 border border-red-500/20 text-red-400 text-[10px] font-semibold px-4 py-3 rounded-xl flex items-center space-x-2"
-              >
+              <div v-if="batchError"
+                class="bg-red-950/40 border border-red-500/20 text-red-400 text-[10px] font-semibold px-4 py-3 rounded-xl flex items-center space-x-2">
                 <svg class="w-4 h-4 shrink-0 fill-current" viewBox="0 0 24 24">
                   <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"
-                  />
+                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
                 </svg>
                 <span>{{ batchError }}</span>
               </div>
 
               <!-- Submit Button -->
-              <button
-                @click="submitBatchUpdate"
-                class="w-full bg-gradient-to-r from-lime-400 to-emerald-500 text-slate-950 font-extrabold text-xs py-3.5 rounded-xl hover:opacity-95 active:scale-[0.98] transition-all shadow-lg shadow-lime-500/10 focus:outline-none cursor-pointer"
-              >
+              <button @click="submitBatchUpdate"
+                class="w-full bg-gradient-to-r from-lime-400 to-emerald-500 text-slate-950 font-extrabold text-xs py-3.5 rounded-xl hover:opacity-95 active:scale-[0.98] transition-all shadow-lg shadow-lime-500/10 focus:outline-none cursor-pointer">
                 Xác Nhận &amp; Cập Nhật Elo
               </button>
 
               <!-- Save Draft Button -->
-              <button
-                @click="saveDraft"
-                class="w-full bg-slate-800 text-slate-400 font-bold text-xs py-3.5 rounded-xl hover:bg-slate-700 hover:text-slate-200 active:scale-[0.98] transition-all border border-slate-700/50 focus:outline-none cursor-pointer"
-              >
+              <button @click="saveDraft"
+                class="w-full bg-slate-800 text-slate-400 font-bold text-xs py-3.5 rounded-xl hover:bg-slate-700 hover:text-slate-200 active:scale-[0.98] transition-all border border-slate-700/50 focus:outline-none cursor-pointer">
                 Lưu Draft
               </button>
             </div>
@@ -1695,11 +1298,8 @@ const svgAreaPath = computed(() => {
       </transition>
 
       <!-- Backdrop for Modal 3 (Batch Update) -->
-      <div
-        v-if="showBatchModal"
-        @click="closeBatchModal"
-        class="absolute inset-0 bg-slate-950/80 backdrop-blur-xs z-35"
-      ></div>
+      <div v-if="showBatchModal" @click="closeBatchModal"
+        class="absolute inset-0 bg-slate-950/80 backdrop-blur-xs z-35"></div>
     </div>
   </div>
 </template>

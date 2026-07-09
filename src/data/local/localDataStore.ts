@@ -2,10 +2,17 @@ import {
   DEFAULT_PLAYERS,
   LOCAL_STORAGE_MATCHES_KEY,
   LOCAL_STORAGE_PLAYERS_KEY,
+  LOCAL_STORAGE_SEASONS_KEY,
   LOCAL_STORAGE_SESSIONS_KEY,
 } from '@/domain/constants'
-import type { BatchSession, MatchRecord, Player } from '@/domain/types'
-import type { DataStore, MatchRepository, PlayerRepository, SessionRepository } from '../types'
+import type { BatchSession, MatchRecord, Player, Season } from '@/domain/types'
+import type {
+  DataStore,
+  MatchRepository,
+  PlayerRepository,
+  SeasonRepository,
+  SessionRepository,
+} from '../types'
 
 // A localStorage-backed DataStore. Kept as a drop-in alternative to the
 // Supabase implementation to demonstrate that storage is swappable via DI.
@@ -69,6 +76,48 @@ const sessions: SessionRepository = {
     list.unshift(session)
     write(LOCAL_STORAGE_SESSIONS_KEY, list)
   },
+
+  async update(session) {
+    const list = read<BatchSession[]>(LOCAL_STORAGE_SESSIONS_KEY, [])
+    const idx = list.findIndex((s) => s._id === session._id)
+    if (idx !== -1) list[idx] = session
+    write(LOCAL_STORAGE_SESSIONS_KEY, list)
+  },
+
+  async remove(id) {
+    const list = read<BatchSession[]>(LOCAL_STORAGE_SESSIONS_KEY, [])
+    write(
+      LOCAL_STORAGE_SESSIONS_KEY,
+      list.filter((s) => s._id !== id),
+    )
+  },
+}
+
+const seasons: SeasonRepository = {
+  async getAll() {
+    return read<Season[]>(LOCAL_STORAGE_SEASONS_KEY, [])
+  },
+
+  async create(season) {
+    const list = read<Season[]>(LOCAL_STORAGE_SEASONS_KEY, [])
+    list.push(season)
+    write(LOCAL_STORAGE_SEASONS_KEY, list)
+  },
+
+  async update(season) {
+    const list = read<Season[]>(LOCAL_STORAGE_SEASONS_KEY, [])
+    const idx = list.findIndex((s) => s._id === season._id)
+    if (idx !== -1) list[idx] = season
+    write(LOCAL_STORAGE_SEASONS_KEY, list)
+  },
+
+  async remove(id) {
+    const list = read<Season[]>(LOCAL_STORAGE_SEASONS_KEY, [])
+    write(
+      LOCAL_STORAGE_SEASONS_KEY,
+      list.filter((s) => s._id !== id),
+    )
+  },
 }
 
 const matches: MatchRepository = {
@@ -83,4 +132,4 @@ const matches: MatchRepository = {
   },
 }
 
-export const createLocalDataStore = (): DataStore => ({ players, sessions, matches })
+export const createLocalDataStore = (): DataStore => ({ players, sessions, matches, seasons })

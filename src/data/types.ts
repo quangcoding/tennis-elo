@@ -1,5 +1,5 @@
 import type { InjectionKey } from 'vue'
-import type { BatchSession, MatchRecord, Player } from '@/domain/types'
+import type { BatchSession, MatchRecord, Player, Season } from '@/domain/types'
 
 /**
  * Persistence contract for players. Swap the implementation (Supabase, REST,
@@ -17,6 +17,8 @@ export interface PlayerRepository {
 export interface SessionRepository {
   getAll(): Promise<BatchSession[]>
   add(session: BatchSession): Promise<void>
+  update(session: BatchSession): Promise<void>
+  remove(id: string): Promise<void>
 }
 
 export interface MatchRepository {
@@ -24,11 +26,19 @@ export interface MatchRepository {
   add(match: MatchRecord): Promise<void>
 }
 
+export interface SeasonRepository {
+  getAll(): Promise<Season[]>
+  create(season: Season): Promise<void>
+  update(season: Season): Promise<void>
+  remove(id: string): Promise<void>
+}
+
 /** Aggregate root injected into the app. */
 export interface DataStore {
   players: PlayerRepository
   sessions: SessionRepository
   matches: MatchRepository
+  seasons: SeasonRepository
 }
 
 /** DI token used with Vue's provide/inject. */

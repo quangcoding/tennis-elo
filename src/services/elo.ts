@@ -32,7 +32,7 @@ export interface BatchComputation {
 export const computeBatchSession = (
   players: Player[],
   entries: BatchPlayerEntry[],
-  opts: { date: string; note?: string },
+  opts: { date: string; note?: string; seasonId?: string | null },
 ): BatchComputation => {
   const sessionDate = new Date(opts.date).toISOString()
   const quarter = getQuarter(opts.date)
@@ -82,9 +82,44 @@ export const computeBatchSession = (
     quarter,
     note: opts.note || `Buổi chơi ${new Date(opts.date).toLocaleDateString('vi-VN')}`,
     changes,
+    season_id: opts.seasonId ?? null,
   }
 
   return { session, updatedPlayers }
+}
+
+/**
+ * Reverses a previously-committed batch session: undoes each player's Elo
+ * gain/loss, match/win/loss counters, and the matching history snapshot.
+ * Pure — callers commit the returned player snapshots via `players.saveAll`.
+ */
+export const reverseBatchSession = (players: Player[], session: BatchSession): Player[] => {
+  const updatedPlayers: Player[] = []
+
+  session.changes.forEach((change) => {
+    const source = players.find((p) => p._id === change.member_id)
+    if (!source) return
+
+    const player: Player = { ...source, history: [...source.history] }
+    const wasOffline = change.elo_gain === -OFFLINE_PENALTY
+
+    player.current_score = round2(Math.max(MIN_SCORE, player.current_score - change.elo_gain))
+
+    if (!wasOffline) {
+      const wins = (change.elo_gain / ELO_PER_MATCH + MATCHES_PER_SESSION) / 2
+      const losses = MATCHES_PER_SESSION - wins
+      player.matches_played -= MATCHES_PER_SESSION
+      player.wins -= wins
+      player.losses -= losses
+    }
+
+    const historyIdx = player.history.lastIndexOf(change.elo_after)
+    if (historyIdx !== -1) player.history.splice(historyIdx, 1)
+
+    updatedPlayers.push(player)
+  })
+
+  return updatedPlayers
 }
 
 export interface MatchComputation {

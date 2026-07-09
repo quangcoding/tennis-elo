@@ -42,6 +42,16 @@ export interface BatchSession {
   quarter: string
   note: string
   changes: BatchSessionChange[]
+  season_id: string | null
+}
+
+export interface Season {
+  _id: string
+  name: string
+  start_date: string
+  end_date: string
+  description: string
+  created_at: string
 }
 
 /** One player's result within a batch session input form. */

@@ -1,6 +1,12 @@
 import { supabase } from '@/utils/supabase'
-import type { BatchSession, MatchRecord, Player } from '@/domain/types'
-import type { DataStore, MatchRepository, PlayerRepository, SessionRepository } from '../types'
+import type { BatchSession, MatchRecord, Player, Season } from '@/domain/types'
+import type {
+  DataStore,
+  MatchRepository,
+  PlayerRepository,
+  SeasonRepository,
+  SessionRepository,
+} from '../types'
 
 const players: PlayerRepository = {
   async getAll() {
@@ -62,6 +68,55 @@ const sessions: SessionRepository = {
     const { error } = await supabase.from('sessions').insert([session])
     if (error) throw error
   },
+
+  async update(session) {
+    const { error } = await supabase
+      .from('sessions')
+      .update({
+        date: session.date,
+        quarter: session.quarter,
+        note: session.note,
+        season_id: session.season_id,
+      })
+      .eq('_id', session._id)
+    if (error) throw error
+  },
+
+  async remove(id) {
+    const { error } = await supabase.from('sessions').delete().eq('_id', id)
+    if (error) throw error
+  },
+}
+
+const seasons: SeasonRepository = {
+  async getAll() {
+    const { data, error } = await supabase.from('seasons').select('*')
+    if (error) throw error
+    return (data ?? []) as Season[]
+  },
+
+  async create(season) {
+    const { error } = await supabase.from('seasons').insert([season])
+    if (error) throw error
+  },
+
+  async update(season) {
+    const { error } = await supabase
+      .from('seasons')
+      .update({
+        name: season.name,
+        start_date: season.start_date,
+        end_date: season.end_date,
+        description: season.description,
+      })
+      .eq('_id', season._id)
+    if (error) throw error
+  },
+
+  async remove(id) {
+    const { error } = await supabase.from('seasons').delete().eq('_id', id)
+    if (error) throw error
+  },
 }
 
 const matches: MatchRepository = {
@@ -77,4 +132,4 @@ const matches: MatchRepository = {
   },
 }
 
-export const createSupabaseDataStore = (): DataStore => ({ players, sessions, matches })
+export const createSupabaseDataStore = (): DataStore => ({ players, sessions, matches, seasons })

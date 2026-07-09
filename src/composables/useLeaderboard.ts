@@ -6,6 +6,7 @@ import type {
   MatchRecord,
   Player,
   PlayerEloChange,
+  Season,
 } from '@/domain/types'
 import { computeBatchSession, computeMatchResult, previewBatchElo } from '@/services/elo'
 import { formatDate, getQuarter } from '@/services/format'
@@ -25,6 +26,7 @@ export function useLeaderboard() {
   // --- State ---
   const players = ref<Player[]>([])
   const matches = ref<MatchRecord[]>([])
+  const seasons = ref<Season[]>([])
   const currentTab = ref<LeaderboardTab>('leaderboard')
 
   // Filters & sorting
@@ -39,6 +41,7 @@ export function useLeaderboard() {
   const batchNote = ref('')
   const batchDate = ref(new Date().toISOString().slice(0, 10))
   const batchEntries = ref<BatchPlayerEntry[]>([])
+  const batchSeasonId = ref<string | null>(null)
   const batchSuccessData = ref<BatchSession | null>(null)
   const batchError = ref('')
 
@@ -62,8 +65,17 @@ export function useLeaderboard() {
     }
   }
 
+  const loadSeasons = async () => {
+    try {
+      seasons.value = await store.seasons.getAll()
+    } catch (err) {
+      console.error('Không tải được danh sách mùa giải.', err)
+      seasons.value = []
+    }
+  }
+
   const init = async () => {
-    await Promise.all([loadPlayers(), loadMatches()])
+    await Promise.all([loadPlayers(), loadMatches(), loadSeasons()])
   }
 
   // --- Single match recording ---
@@ -121,6 +133,9 @@ export function useLeaderboard() {
   }
 
   // --- Batch update ---
+  const findActiveSeason = (date: string) =>
+    seasons.value.find((s) => s.start_date <= date && date <= s.end_date) ?? null
+
   const openBatch = () => {
     batchEntries.value = players.value.map((p) => ({
       player_id: p._id,
@@ -129,6 +144,7 @@ export function useLeaderboard() {
     }))
     batchNote.value = ''
     batchDate.value = new Date().toISOString().slice(0, 10)
+    batchSeasonId.value = findActiveSeason(batchDate.value)?._id ?? null
     batchError.value = ''
     batchSuccessData.value = null
     loadDraft()
@@ -189,6 +205,7 @@ export function useLeaderboard() {
     const { session, updatedPlayers } = computeBatchSession(players.value, batchEntries.value, {
       date: batchDate.value,
       note: batchNote.value,
+      seasonId: batchSeasonId.value,
     })
 
     // Commit updated snapshots into reactive state.
@@ -283,6 +300,7 @@ export function useLeaderboard() {
     // state
     players,
     matches,
+    seasons,
     currentTab,
     searchQuery,
     filterGroup,
@@ -291,6 +309,7 @@ export function useLeaderboard() {
     batchNote,
     batchDate,
     batchEntries,
+    batchSeasonId,
     batchSuccessData,
     batchError,
     // lifecycle / actions

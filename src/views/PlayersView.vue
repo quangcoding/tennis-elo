@@ -142,13 +142,23 @@ const navigateToHome = (tab: 'leaderboard' | 'matches') => {
           </div>
         </div>
 
-        <button @click="showAddModal = true"
-          class="p-2 rounded-lg bg-lime-500/10 hover:bg-lime-500/20 text-lime-400 hover:text-lime-300 transition-all border border-lime-500/20 text-xs font-bold flex items-center space-x-1">
-          <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke-width="2.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-          <span>Thêm</span>
-        </button>
+        <div class="flex items-center space-x-2">
+          <button @click="router.push('/seasons')"
+            class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-slate-100 transition-all border border-slate-700/60"
+            title="Quản lý mùa giải">
+            <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round"
+                d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+            </svg>
+          </button>
+          <button @click="showAddModal = true"
+            class="p-2 rounded-lg bg-lime-500/10 hover:bg-lime-500/20 text-lime-400 hover:text-lime-300 transition-all border border-lime-500/20 text-xs font-bold flex items-center space-x-1">
+            <svg class="w-3.5 h-3.5 stroke-current" fill="none" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            <span>Thêm</span>
+          </button>
+        </div>
       </header>
 
       <!-- Main Scrollable Content -->
@@ -289,16 +299,6 @@ const navigateToHome = (tab: 'leaderboard' | 'matches') => {
           <svg class="w-5 h-5 stroke-current" fill="none" stroke-width="3.5" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-        </button>
-
-        <!-- Players Tab trigger (Active) -->
-        <button class="flex flex-col items-center space-y-1 transition-all focus:outline-none text-lime-400 scale-105">
-          <!-- Users Icon -->
-          <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round"
-              d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.109A3.318 3.318 0 0112 22.5c-1.258 0-2.4-.698-3-1.847V19.13M8.25 12h7.5m-7.5 3H12" />
-          </svg>
-          <span class="text-[9px] font-extrabold uppercase tracking-wider">Tuyển thủ</span>
         </button>
 
         <!-- Matches Tab trigger -->
