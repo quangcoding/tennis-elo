@@ -8,7 +8,6 @@ export const LOCAL_STORAGE_SEASONS_KEY = 'tennis_elo_seasons_v1'
 export const LOCAL_STORAGE_DRAFT_KEY = 'tennis_elo_batch_draft_v1'
 
 // --- Elo rules ---
-export const MATCHES_PER_SESSION = 2 // Tổng số trận mỗi buổi (cố định)
 export const OFFLINE_PENALTY = 0.25 // Phạt offline trực tiếp
 export const ELO_PER_MATCH = 0.25 // Điểm cộng/trừ mỗi trận
 export const MIN_SCORE = 5.0 // Sàn điểm Elo

@@ -1,4 +1,4 @@
-import { ELO_PER_MATCH, MATCHES_PER_SESSION, MIN_SCORE, OFFLINE_PENALTY } from '@/domain/constants'
+import { ELO_PER_MATCH, MIN_SCORE, OFFLINE_PENALTY } from '@/domain/constants'
 import type {
   BatchPlayerEntry,
   BatchSession,
@@ -14,7 +14,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100
 /** Preview the Elo delta for a single batch entry (no side effects). */
 export const previewBatchElo = (entry: BatchPlayerEntry): number => {
   if (entry.offline) return -OFFLINE_PENALTY
-  const losses = MATCHES_PER_SESSION - entry.wins
+  const losses = entry.games_played - entry.wins
   return round2(entry.wins * ELO_PER_MATCH - losses * ELO_PER_MATCH)
 }
 
@@ -57,11 +57,11 @@ export const computeBatchSession = (
       player.current_score = newScore
       player.history.push(newScore)
     } else {
-      const losses = MATCHES_PER_SESSION - entry.wins
+      const losses = entry.games_played - entry.wins
       eloGain = round2(entry.wins * ELO_PER_MATCH - losses * ELO_PER_MATCH)
       newScore = round2(Math.max(MIN_SCORE, player.current_score + eloGain))
       player.current_score = newScore
-      player.matches_played += MATCHES_PER_SESSION
+      player.matches_played += entry.games_played
       player.wins += entry.wins
       player.losses += losses
       player.history.push(newScore)
@@ -71,6 +71,9 @@ export const computeBatchSession = (
     changes.push({
       member_id: player._id,
       name: player.name,
+      games_played: entry.games_played,
+      wins: entry.wins,
+      offline: entry.offline,
       elo_gain: eloGain,
       elo_after: newScore,
     })
@@ -101,15 +104,13 @@ export const reverseBatchSession = (players: Player[], session: BatchSession): P
     if (!source) return
 
     const player: Player = { ...source, history: [...source.history] }
-    const wasOffline = change.elo_gain === -OFFLINE_PENALTY
 
     player.current_score = round2(Math.max(MIN_SCORE, player.current_score - change.elo_gain))
 
-    if (!wasOffline) {
-      const wins = (change.elo_gain / ELO_PER_MATCH + MATCHES_PER_SESSION) / 2
-      const losses = MATCHES_PER_SESSION - wins
-      player.matches_played -= MATCHES_PER_SESSION
-      player.wins -= wins
+    if (!change.offline) {
+      const losses = change.games_played - change.wins
+      player.matches_played -= change.games_played
+      player.wins -= change.wins
       player.losses -= losses
     }
 

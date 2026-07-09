@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import type { BatchPlayerEntry, MatchRecord, Player } from '@/domain/types'
+import type { MatchRecord, Player } from '@/domain/types'
 import { getAvatarGradient, getInitials, formatDate, formatRelativeDate } from '@/services/format'
 import { useLeaderboard, type MatchSuccess } from '@/composables/useLeaderboard'
 
@@ -12,27 +12,14 @@ const router = useRouter()
 const {
   players,
   matches,
-  seasons,
   currentTab,
   searchQuery,
   filterGroup,
   sortBy,
   matchDate,
-  batchNote,
-  batchDate,
-  batchEntries,
-  batchSeasonId,
-  batchSuccessData,
-  batchError,
   init,
-  openBatch,
-  resetBatchResult,
   resetToDefault: resetStore,
-  saveDraft,
-  submitBatchUpdate,
   submitMatch: recordMatch,
-  getBatchEloPreview,
-  getQuarter,
   statsHero,
   filteredPlayers,
   matchesByDay,
@@ -42,7 +29,7 @@ const {
 // --- View-local modal state ---
 const showAddMatchModal = ref(false)
 const showDetailModal = ref(false)
-const showBatchModal = ref(false)
+const showFabMenu = ref(false)
 const activePlayer = ref<Player | null>(null)
 
 // Add Match Form — supports singles & doubles (Elo calc still WIP)
@@ -63,13 +50,6 @@ onMounted(async () => {
     currentTab.value = 'leaderboard'
   }
   await init()
-
-  const openBatchSeason = route.query.openBatchSeason
-  if (typeof openBatchSeason === 'string') {
-    openBatchModal()
-    batchSeasonId.value = openBatchSeason
-    router.replace({ path: route.path, query: { ...route.query, openBatchSeason: undefined } })
-  }
 })
 
 // Toggle a player in the winner/loser selection (max 2 per side)
@@ -129,25 +109,11 @@ const openPlayerDetails = (player: Player) => {
   showDetailModal.value = true
 }
 
-// --- Batch modal wiring ---
-const openBatchModal = () => {
-  openBatch()
-  showBatchModal.value = true
-}
-const closeBatchModal = () => {
-  showBatchModal.value = false
-  resetBatchResult()
-}
-const openAddMatchFromBatch = () => {
-  closeBatchModal()
+// --- FAB quick-action popover ---
+const openAddMatchModal = () => {
+  showFabMenu.value = false
   matchDate.value = new Date().toISOString().slice(0, 10)
   showAddMatchModal.value = true
-}
-
-// Toggle offline state for a batch entry (offline players play 0 matches)
-const toggleOffline = (entry: BatchPlayerEntry) => {
-  entry.offline = !entry.offline
-  if (entry.offline) entry.wins = 0
 }
 
 // --- Player detail view helpers (pure, based on activePlayer/matches) ---
@@ -262,7 +228,7 @@ const svgAreaPath = computed(() => {
         <!-- Header Action Buttons -->
         <div class="flex items-center space-x-2">
           <!-- Batch Update Button -->
-          <button @click="openBatchModal"
+          <button @click="router.push('/batch-update')"
             class="p-2 rounded-lg bg-lime-500/10 hover:bg-lime-500/20 text-lime-400 hover:text-lime-300 transition-all border border-lime-500/20"
             title="Cập nhật Elo hàng loạt theo buổi">
             <!-- Calendar/batch icon -->
@@ -535,13 +501,33 @@ const svgAreaPath = computed(() => {
         </button>
 
         <!-- Dynamic Action Plus Button (FAB) -->
-        <button @click="openBatchModal"
-          class="w-11 h-11 rounded-full bg-gradient-to-tr from-lime-400 to-emerald-500 text-slate-950 flex items-center justify-center shadow-lg shadow-lime-500/20 -translate-y-4 hover:scale-110 active:scale-95 transition-all focus:outline-none cursor-pointer">
-          <!-- Plus Icon -->
-          <svg class="w-5 h-5 stroke-current" fill="none" stroke-width="3.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-          </svg>
-        </button>
+        <div class="relative -translate-y-4">
+          <!-- Quick-action popover -->
+          <transition enter-active-class="transition duration-150 ease-out"
+            enter-from-class="transform scale-95 opacity-0" enter-to-class="transform scale-100 opacity-100"
+            leave-active-class="transition duration-100 ease-in" leave-from-class="transform scale-100 opacity-100"
+            leave-to-class="transform scale-95 opacity-0">
+            <button v-if="showFabMenu" @click="openAddMatchModal"
+              class="absolute bottom-[60px] left-1/2 -translate-x-1/2 flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-extrabold whitespace-nowrap shadow-xl border border-slate-700/60 transition-all cursor-pointer z-40">
+              <svg class="w-3.5 h-3.5 text-lime-400 stroke-current" fill="none" stroke-width="3" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              <span>Ghi nhận trận đấu</span>
+            </button>
+          </transition>
+
+          <button @click="showFabMenu = !showFabMenu"
+            class="w-11 h-11 rounded-full bg-gradient-to-tr from-lime-400 to-emerald-500 text-slate-950 flex items-center justify-center shadow-lg shadow-lime-500/20 hover:scale-110 active:scale-95 transition-all focus:outline-none cursor-pointer relative z-40">
+            <!-- Plus Icon -->
+            <svg class="w-5 h-5 stroke-current transition-transform"
+              :class="showFabMenu ? 'rotate-45' : ''" fill="none" stroke-width="3.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Backdrop to dismiss the FAB popover -->
+        <div v-if="showFabMenu" @click="showFabMenu = false" class="fixed inset-0 z-30"></div>
 
         <!-- Match History Tab trigger -->
         <button @click="currentTab = 'matches'" :class="[
@@ -994,312 +980,6 @@ const svgAreaPath = computed(() => {
       <div v-if="showDetailModal" @click="showDetailModal = false"
         class="absolute inset-0 bg-slate-950/80 backdrop-blur-xs z-35"></div>
 
-      <!-- MODAL 3: BATCH UPDATE ELO SHEET -->
-      <transition enter-active-class="transition duration-300 ease-out" enter-from-class="transform translate-y-full"
-        enter-to-class="transform translate-y-0" leave-active-class="transition duration-200 ease-in"
-        leave-from-class="transform translate-y-0" leave-to-class="transform translate-y-full">
-        <div v-if="showBatchModal"
-          class="absolute inset-x-0 bottom-0 max-h-[90%] bg-slate-900 border-t border-slate-800 rounded-t-3xl shadow-2xl z-40 overflow-y-auto flex flex-col pb-6">
-          <!-- Drag Handle -->
-          <div class="w-12 h-1.5 bg-slate-700 rounded-full mx-auto my-3 shrink-0"></div>
-
-          <!-- Sheet Header -->
-          <div class="px-5 pb-3 flex justify-between items-center shrink-0">
-            <div>
-              <h2 class="text-sm font-extrabold text-slate-100">Cập nhật Elo theo Buổi</h2>
-              <p class="text-[9px] text-slate-400 mt-0.5">
-                Mỗi buổi 2 trận · Nhập số thắng · Thua = 2 − Thắng
-              </p>
-            </div>
-            <button @click="closeBatchModal"
-              class="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer">
-              <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <!-- Form Content -->
-          <div class="flex-1 px-5 space-y-4">
-            <!-- SUCCESS VIEW -->
-            <div v-if="batchSuccessData" class="space-y-5 py-2 text-center">
-              <div
-                class="w-14 h-14 bg-lime-500/15 border border-lime-500/20 rounded-full flex items-center justify-center mx-auto text-lime-400">
-                <svg class="w-7 h-7 stroke-current" fill="none" stroke-width="3" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                </svg>
-              </div>
-
-              <div>
-                <h3 class="text-base font-black text-slate-100">Đã cập nhật buổi chơi!</h3>
-                <p class="text-[10px] text-slate-400 mt-1">{{ batchSuccessData.note }}</p>
-                <p class="text-[9px] text-slate-500 mt-0.5">{{ batchSuccessData.quarter }}</p>
-              </div>
-
-              <!-- Changes Summary -->
-              <div class="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden text-left">
-                <div class="px-4 py-2 border-b border-slate-800 flex justify-between">
-                  <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Người chơi</span>
-                  <span class="text-[9px] uppercase font-bold text-slate-400 tracking-wider">Biến động Elo</span>
-                </div>
-                <div v-for="c in batchSuccessData.changes" :key="c.member_id"
-                  class="px-4 py-2.5 border-b border-slate-900/60 last:border-0 flex justify-between items-center">
-                  <div class="flex items-center space-x-2">
-                    <div :class="[
-                      'w-6 h-6 rounded-full bg-gradient-to-br flex items-center justify-center text-[7px] font-black text-white uppercase shrink-0',
-                      getAvatarGradient(c.name),
-                    ]">
-                      {{ getInitials(c.name).slice(0, 1) }}
-                    </div>
-                    <span class="text-xs font-bold text-slate-200">{{
-                      c.name.split(' ').pop()
-                    }}</span>
-                  </div>
-                  <div class="font-mono text-xs flex items-center space-x-1.5">
-                    <span class="text-slate-500 text-[10px]">→ {{ c.elo_after.toFixed(2) }}</span>
-                    <span :class="[
-                      'text-[10px] font-bold px-1.5 py-0.5 rounded',
-                      c.elo_gain > 0
-                        ? 'bg-emerald-500/10 text-emerald-400'
-                        : c.elo_gain < 0
-                          ? 'bg-red-500/10 text-red-400'
-                          : 'bg-slate-800 text-slate-500',
-                    ]">
-                      {{ c.elo_gain > 0 ? '+' : '' }}{{ c.elo_gain.toFixed(2) }}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <button @click="closeBatchModal"
-                class="w-full bg-slate-800 text-slate-200 font-bold text-xs py-3.5 rounded-xl hover:bg-slate-700 transition-all border border-slate-700/50 cursor-pointer">
-                Hoàn Tất
-              </button>
-            </div>
-
-            <!-- INPUT FORM VIEW -->
-            <div v-else class="space-y-4">
-              <!-- Link/Button to Switch to Single Match Recording -->
-              <div class="flex justify-between items-center bg-slate-950 p-3 rounded-xl border border-slate-800/80">
-                <span class="text-[10px] text-slate-400 font-semibold">Ghi nhận riêng lẻ từng trận đấu?</span>
-                <button @click="openAddMatchFromBatch"
-                  class="flex items-center space-x-1 px-2.5 py-1.5 rounded-lg bg-lime-500/10 hover:bg-lime-500/20 text-lime-400 text-[9px] font-extrabold transition-all border border-lime-500/25 cursor-pointer uppercase tracking-wider">
-                  <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                  </svg>
-                  <span>Ghi nhận trận đấu</span>
-                </button>
-              </div>
-
-              <!-- Date & Note fields -->
-              <div class="grid grid-cols-2 gap-3">
-                <div>
-                  <label class="block text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-1.5">Ngày diễn
-                    ra</label>
-                  <input v-model="batchDate" type="date"
-                    class="w-full bg-slate-950 text-[10px] text-slate-200 px-3 py-2 rounded-xl border border-slate-800 focus:outline-none focus:border-lime-500/50 transition-colors" />
-                </div>
-                <div>
-                  <label class="block text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-1.5">Ghi chú
-                    buổi</label>
-                  <input v-model="batchNote" type="text" placeholder="VD: Buổi 1 - Khai mạc Q3"
-                    class="w-full bg-slate-950 text-[10px] text-slate-200 px-3 py-2 rounded-xl border border-slate-800 placeholder-slate-600 focus:outline-none focus:border-lime-500/50 transition-colors" />
-                </div>
-              </div>
-
-              <!-- Quarter Preview -->
-              <div class="flex items-center space-x-2 px-3 py-2 bg-lime-500/5 border border-lime-500/15 rounded-xl">
-                <svg class="w-3 h-3 text-lime-500 shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                  <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z" />
-                </svg>
-                <span class="text-[9px] text-lime-400 font-bold">Quý: {{ getQuarter(batchDate) }}</span>
-              </div>
-
-              <!-- Season selector -->
-              <div>
-                <label class="block text-[9px] uppercase font-bold text-slate-400 tracking-wider mb-1.5">Mùa
-                  giải</label>
-                <select v-model="batchSeasonId"
-                  class="w-full bg-slate-950 border border-slate-800 text-[10px] font-semibold text-slate-200 px-3 py-2 rounded-xl appearance-none focus:outline-none focus:border-lime-500/50">
-                  <option :value="null">Không thuộc mùa giải nào</option>
-                  <option v-for="season in seasons" :key="season._id" :value="season._id">
-                    {{ season.name }}
-                  </option>
-                </select>
-              </div>
-
-              <!-- Divider -->
-              <div class="flex items-center space-x-3">
-                <div class="flex-1 h-px bg-slate-800"></div>
-                <span class="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Kết quả từng người</span>
-                <div class="flex-1 h-px bg-slate-800"></div>
-              </div>
-
-              <!-- ELO Info badge -->
-              <div
-                class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[9px] text-slate-500 font-semibold">
-                <span class="flex items-center space-x-1">
-                  <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
-                  <span>2 thắng = +0.50</span>
-                </span>
-                <span class="text-slate-700">·</span>
-                <span class="flex items-center space-x-1">
-                  <span class="inline-block w-2 h-2 rounded-full bg-yellow-500"></span>
-                  <span>1 thắng = 0.00</span>
-                </span>
-                <span class="text-slate-700">·</span>
-                <span class="flex items-center space-x-1">
-                  <span class="inline-block w-2 h-2 rounded-full bg-red-500"></span>
-                  <span>0 thắng = −0.50</span>
-                </span>
-                <span class="text-slate-700">·</span>
-                <span class="flex items-center space-x-1">
-                  <span class="inline-block w-2 h-2 rounded-full bg-slate-600"></span>
-                  <span>Offline = −0.25</span>
-                </span>
-              </div>
-
-              <!-- Player Entries Grid -->
-              <div class="space-y-2">
-                <div v-for="entry in batchEntries" :key="entry.player_id" :class="[
-                  'border rounded-xl p-3 transition-all',
-                  entry.offline
-                    ? 'bg-slate-950/50 border-slate-700/30 opacity-60'
-                    : 'bg-slate-950 border-slate-800/60',
-                ]">
-                  <div class="flex items-center justify-between">
-                    <!-- Player info -->
-                    <div class="flex items-center space-x-2 min-w-0">
-                      <div :class="[
-                        'w-7 h-7 rounded-full bg-gradient-to-br flex items-center justify-center text-[8px] font-black text-white uppercase shrink-0 transition-all',
-                        getAvatarGradient(
-                          players.find((p) => p._id === entry.player_id)?.name || '',
-                        ),
-                        entry.offline ? 'grayscale opacity-50' : '',
-                      ]">
-                        {{
-                          getInitials(
-                            players.find((p) => p._id === entry.player_id)?.name || '',
-                          ).slice(0, 1)
-                        }}
-                      </div>
-                      <div class="min-w-0">
-                        <p class="text-[10px] font-bold text-slate-200 truncate">
-                          {{
-                            players
-                              .find((p) => p._id === entry.player_id)
-                              ?.name.split(' ')
-                              .pop()
-                          }}
-                        </p>
-                        <p class="text-[8px] font-mono">
-                          <span class="text-slate-500">Elo:
-                            {{
-                              players
-                                .find((p) => p._id === entry.player_id)
-                                ?.current_score.toFixed(2)
-                            }}</span>
-                          <!-- Preview delta -->
-                          <span :class="[
-                            'ml-1 font-bold transition-all',
-                            getBatchEloPreview(entry) > 0
-                              ? 'text-emerald-400'
-                              : getBatchEloPreview(entry) < 0
-                                ? 'text-red-400'
-                                : 'text-slate-500',
-                          ]">
-                            {{ getBatchEloPreview(entry) >= 0 ? '+' : ''
-                            }}{{ getBatchEloPreview(entry).toFixed(2) }}
-                            <span v-if="entry.offline" class="text-slate-500 ml-0.5">(offline)</span>
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-
-                    <!-- Controls: offline checkbox OR wins counter -->
-                    <div class="flex items-center space-x-3 shrink-0">
-                      <!-- Wins counter (only when online) -->
-                      <div v-if="!entry.offline" class="flex items-center space-x-1.5">
-                        <span class="text-[8px] font-bold text-slate-400 uppercase">Thắng</span>
-                        <div class="flex items-center bg-slate-900 border border-slate-800 rounded-lg overflow-hidden">
-                          <button @click="entry.wins = Math.max(0, entry.wins - 1)"
-                            class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all text-sm font-bold cursor-pointer">
-                            −
-                          </button>
-                          <span :class="[
-                            'w-5 text-center text-[10px] font-black',
-                            entry.wins === 2
-                              ? 'text-emerald-400'
-                              : entry.wins === 1
-                                ? 'text-yellow-400'
-                                : 'text-red-400',
-                          ]">{{ entry.wins }}</span>
-                          <button @click="entry.wins = Math.min(2, entry.wins + 1)"
-                            class="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition-all text-sm font-bold cursor-pointer">
-                            +
-                          </button>
-                        </div>
-                        <!-- Auto losses display -->
-                        <span class="text-[8px] text-slate-600 font-mono">/ {{ 2 - entry.wins }}L</span>
-                      </div>
-
-                      <!-- Offline penalty label -->
-                      <div v-else
-                        class="text-[9px] font-bold text-red-400/70 bg-red-500/5 border border-red-500/15 px-2 py-1 rounded-lg">
-                        −0.25
-                      </div>
-
-                      <!-- Offline toggle checkbox -->
-                      <label class="flex items-center space-x-1.5 cursor-pointer group">
-                        <span
-                          class="text-[8px] text-slate-500 group-hover:text-slate-300 transition-colors font-bold uppercase">Off</span>
-                        <div @click="toggleOffline(entry)" :class="[
-                          'w-8 h-4 rounded-full border transition-all cursor-pointer relative',
-                          entry.offline
-                            ? 'bg-red-500/20 border-red-500/40'
-                            : 'bg-slate-800 border-slate-700',
-                        ]">
-                          <div :class="[
-                            'absolute top-0.5 w-3 h-3 rounded-full transition-all',
-                            entry.offline ? 'left-4 bg-red-400' : 'left-0.5 bg-slate-500',
-                          ]"></div>
-                        </div>
-                      </label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Error Box -->
-              <div v-if="batchError"
-                class="bg-red-950/40 border border-red-500/20 text-red-400 text-[10px] font-semibold px-4 py-3 rounded-xl flex items-center space-x-2">
-                <svg class="w-4 h-4 shrink-0 fill-current" viewBox="0 0 24 24">
-                  <path
-                    d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
-                </svg>
-                <span>{{ batchError }}</span>
-              </div>
-
-              <!-- Submit Button -->
-              <button @click="submitBatchUpdate"
-                class="w-full bg-gradient-to-r from-lime-400 to-emerald-500 text-slate-950 font-extrabold text-xs py-3.5 rounded-xl hover:opacity-95 active:scale-[0.98] transition-all shadow-lg shadow-lime-500/10 focus:outline-none cursor-pointer">
-                Xác Nhận &amp; Cập Nhật Elo
-              </button>
-
-              <!-- Save Draft Button -->
-              <button @click="saveDraft"
-                class="w-full bg-slate-800 text-slate-400 font-bold text-xs py-3.5 rounded-xl hover:bg-slate-700 hover:text-slate-200 active:scale-[0.98] transition-all border border-slate-700/50 focus:outline-none cursor-pointer">
-                Lưu Draft
-              </button>
-            </div>
-          </div>
-        </div>
-      </transition>
-
-      <!-- Backdrop for Modal 3 (Batch Update) -->
-      <div v-if="showBatchModal" @click="closeBatchModal"
-        class="absolute inset-0 bg-slate-950/80 backdrop-blur-xs z-35"></div>
     </div>
   </div>
 </template>

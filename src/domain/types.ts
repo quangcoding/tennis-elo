@@ -32,6 +32,9 @@ export interface MatchRecord {
 export interface BatchSessionChange {
   member_id: string
   name: string
+  games_played: number
+  wins: number
+  offline: boolean
   elo_gain: number
   elo_after: number
 }
@@ -54,11 +57,12 @@ export interface Season {
   created_at: string
 }
 
-/** One player's result within a batch session input form. */
+/** One player's result within a batch session, derived from that day's recorded matches. */
 export interface BatchPlayerEntry {
   player_id: string
-  wins: number // 0–2 (total matches per session = 2, losses = 2 - wins)
-  offline: boolean // if true: flat penalty, no match counted
+  games_played: number // actual matches played that day (0 if offline)
+  wins: number // actual wins that day; losses = games_played - wins
+  offline: boolean // if true: flat penalty, no matches counted
 }
 
 export interface PlayerEloChange {

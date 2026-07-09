@@ -143,7 +143,7 @@ const handleDeleteSession = async (session: BatchSession) => {
 
 const navigateToAddSession = () => {
   if (!selectedSeason.value) return
-  router.push({ path: '/', query: { tab: 'leaderboard', openBatchSeason: selectedSeason.value._id } })
+  router.push({ path: '/batch-update', query: { season: selectedSeason.value._id } })
 }
 
 const navigateToHome = (tab: 'leaderboard' | 'matches') => {

@@ -27,6 +27,11 @@ const router = createRouter({
       name: 'seasons',
       component: () => import('../views/SeasonsView.vue'),
     },
+    {
+      path: '/batch-update',
+      name: 'batch-update',
+      component: () => import('../views/BatchUpdateView.vue'),
+    },
   ],
 })
 

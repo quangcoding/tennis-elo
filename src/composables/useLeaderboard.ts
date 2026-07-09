@@ -1,5 +1,5 @@
 import { computed, ref, watch } from 'vue'
-import { DEFAULT_PLAYERS, LOCAL_STORAGE_DRAFT_KEY, MATCHES_PER_SESSION } from '@/domain/constants'
+import { DEFAULT_PLAYERS, LOCAL_STORAGE_DRAFT_KEY } from '@/domain/constants'
 import type {
   BatchPlayerEntry,
   BatchSession,
@@ -40,7 +40,7 @@ export function useLeaderboard() {
   // Batch update state
   const batchNote = ref('')
   const batchDate = ref(new Date().toISOString().slice(0, 10))
-  const batchEntries = ref<BatchPlayerEntry[]>([])
+  const batchOfflineIds = ref<Set<string>>(new Set())
   const batchSeasonId = ref<string | null>(null)
   const batchSuccessData = ref<BatchSession | null>(null)
   const batchError = ref('')
@@ -136,12 +136,69 @@ export function useLeaderboard() {
   const findActiveSeason = (date: string) =>
     seasons.value.find((s) => s.start_date <= date && date <= s.end_date) ?? null
 
+  /** Tallies a player's actual matches for a given day from recorded MatchRecords. */
+  const computeDayStats = (playerId: string, date: string) => {
+    let gamesPlayed = 0
+    let wins = 0
+    matches.value.forEach((m) => {
+      if (m.played_at.slice(0, 10) !== date) return
+      if (m.winner_ids.includes(playerId)) {
+        gamesPlayed++
+        wins++
+      } else if (m.loser_ids.includes(playerId)) {
+        gamesPlayed++
+      }
+    })
+    return { gamesPlayed, wins }
+  }
+
+  // Derived from real matches for the day, plus the manually-toggled offline set.
+  const batchEntries = computed<BatchPlayerEntry[]>(() =>
+    players.value.map((p) => {
+      if (batchOfflineIds.value.has(p._id)) {
+        return { player_id: p._id, games_played: 0, wins: 0, offline: true }
+      }
+      const { gamesPlayed, wins } = computeDayStats(p._id, batchDate.value)
+      return { player_id: p._id, games_played: gamesPlayed, wins, offline: false }
+    }),
+  )
+
+  const getDraftKeyForDate = (date: string) => `${LOCAL_STORAGE_DRAFT_KEY}_${date}`
+  const getDraftKey = () => getDraftKeyForDate(batchDate.value)
+
+  const persistDraft = () => {
+    localStorage.setItem(
+      getDraftKey(),
+      JSON.stringify({
+        date: batchDate.value,
+        note: batchNote.value,
+        offlineIds: [...batchOfflineIds.value],
+        savedAt: Date.now(),
+      }),
+    )
+  }
+
+  const loadDraft = () => {
+    batchNote.value = ''
+    batchOfflineIds.value = new Set()
+
+    const saved = localStorage.getItem(getDraftKey())
+    if (!saved) return
+    try {
+      const draft = JSON.parse(saved)
+      const oneDayMs = 24 * 60 * 60 * 1000
+      if (Date.now() - draft.savedAt < oneDayMs) {
+        batchNote.value = draft.note || ''
+        batchOfflineIds.value = new Set(draft.offlineIds || [])
+      } else {
+        localStorage.removeItem(getDraftKey())
+      }
+    } catch {
+      localStorage.removeItem(getDraftKey())
+    }
+  }
+
   const openBatch = () => {
-    batchEntries.value = players.value.map((p) => ({
-      player_id: p._id,
-      wins: 0,
-      offline: false,
-    }))
     batchNote.value = ''
     batchDate.value = new Date().toISOString().slice(0, 10)
     batchSeasonId.value = findActiveSeason(batchDate.value)?._id ?? null
@@ -155,50 +212,28 @@ export function useLeaderboard() {
     batchError.value = ''
   }
 
-  const getDraftKey = () => `${LOCAL_STORAGE_DRAFT_KEY}_${batchDate.value}`
+  watch(batchDate, (date) => {
+    batchSeasonId.value = findActiveSeason(date)?._id ?? null
+    loadDraft()
+  })
 
-  const saveDraft = () => {
-    if (
-      !confirm(
-        'Bạn có chắc muốn lưu draft cho ngày ' +
-          batchDate.value +
-          ' không? Dữ liệu sẽ được lưu trong 1 ngày.',
-      )
-    )
-      return
-    localStorage.setItem(
-      getDraftKey(),
-      JSON.stringify({
-        date: batchDate.value,
-        note: batchNote.value,
-        entries: batchEntries.value,
-        savedAt: Date.now(),
-      }),
-    )
+  watch(batchNote, persistDraft)
+
+  const toggleBatchOffline = (playerId: string) => {
+    if (batchOfflineIds.value.has(playerId)) batchOfflineIds.value.delete(playerId)
+    else batchOfflineIds.value.add(playerId)
+    // Force reactivity on the Set mutation and persist.
+    batchOfflineIds.value = new Set(batchOfflineIds.value)
+    persistDraft()
   }
-
-  const loadDraft = () => {
-    const saved = localStorage.getItem(getDraftKey())
-    if (!saved) return
-    const draft = JSON.parse(saved)
-    const oneDayMs = 24 * 60 * 60 * 1000
-    if (Date.now() - draft.savedAt < oneDayMs) {
-      batchNote.value = draft.note || ''
-      batchEntries.value = draft.entries || []
-    } else {
-      localStorage.removeItem(getDraftKey())
-    }
-  }
-
-  watch(batchDate, loadDraft)
 
   const submitBatchUpdate = async () => {
     if (!confirm('Bạn có chắc muốn lưu cho ngày ' + batchDate.value + ' không?')) return
     batchError.value = ''
 
-    const hasAnyEntry = batchEntries.value.some((e) => e.offline || e.wins > 0)
+    const hasAnyEntry = batchEntries.value.some((e) => e.offline || e.games_played > 0)
     if (!hasAnyEntry) {
-      batchError.value = 'Vui lòng nhập kết quả cho ít nhất 1 người (hoặc đánh dấu offline).'
+      batchError.value = 'Vui lòng có ít nhất 1 người chơi (hoặc đánh dấu offline).'
       return
     }
 
@@ -317,7 +352,7 @@ export function useLeaderboard() {
     openBatch,
     resetBatchResult,
     resetToDefault,
-    saveDraft,
+    toggleBatchOffline,
     submitBatchUpdate,
     submitMatch,
     // helpers
@@ -328,8 +363,6 @@ export function useLeaderboard() {
     filteredPlayers,
     matchesByDay,
     getPlayerRank,
-    // constants for template
-    MATCHES_PER_SESSION,
   }
 }
 
