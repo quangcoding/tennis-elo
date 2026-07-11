@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import type { MatchRecord, Player } from '@/domain/types'
+import { GUEST_NAME, isGuestId, makeGuestId } from '@/domain/constants'
 import { getAvatarGradient, getInitials, formatDate, formatRelativeDate } from '@/services/format'
 import { useLeaderboard, type MatchSuccess } from '@/composables/useLeaderboard'
 
@@ -12,17 +13,22 @@ const router = useRouter()
 const {
   players,
   matches,
+  seasons,
   currentTab,
   searchQuery,
   filterGroup,
   sortBy,
   matchDate,
+  matchSeasonId,
   init,
+  openAddMatch,
   resetToDefault: resetStore,
   submitMatch: recordMatch,
   statsHero,
   filteredPlayers,
   matchesByDay,
+  matchDayEntries,
+  matchDayHistory,
   getPlayerRank,
 } = useLeaderboard()
 
@@ -70,6 +76,22 @@ const toggleLoser = (id: string) => {
   }
 }
 
+// Guest ("vãng lai") participants — walk-ins not tracked as members, no Elo effect
+const addGuestWinner = () => {
+  if (winnerIds.value.length < 2) winnerIds.value.push(makeGuestId())
+}
+const addGuestLoser = () => {
+  if (loserIds.value.length < 2) loserIds.value.push(makeGuestId())
+}
+const removeWinner = (id: string) => {
+  winnerIds.value = winnerIds.value.filter((x) => x !== id)
+}
+const removeLoser = (id: string) => {
+  loserIds.value = loserIds.value.filter((x) => x !== id)
+}
+const getParticipantName = (id: string) =>
+  isGuestId(id) ? GUEST_NAME : (players.value.find((p) => p._id === id)?.name.split(' ').pop() ?? '')
+
 const submitMatch = async () => {
   formError.value = ''
   const { success, error } = await recordMatch(winnerIds.value, loserIds.value, setScore.value)
@@ -110,9 +132,12 @@ const openPlayerDetails = (player: Player) => {
 }
 
 // --- FAB quick-action popover ---
+const openFabMenu = () => {
+  openAddMatch()
+  showFabMenu.value = true
+}
 const openAddMatchModal = () => {
   showFabMenu.value = false
-  matchDate.value = new Date().toISOString().slice(0, 10)
   showAddMatchModal.value = true
 }
 
@@ -501,33 +526,14 @@ const svgAreaPath = computed(() => {
         </button>
 
         <!-- Dynamic Action Plus Button (FAB) -->
-        <div class="relative -translate-y-4">
-          <!-- Quick-action popover -->
-          <transition enter-active-class="transition duration-150 ease-out"
-            enter-from-class="transform scale-95 opacity-0" enter-to-class="transform scale-100 opacity-100"
-            leave-active-class="transition duration-100 ease-in" leave-from-class="transform scale-100 opacity-100"
-            leave-to-class="transform scale-95 opacity-0">
-            <button v-if="showFabMenu" @click="openAddMatchModal"
-              class="absolute bottom-[60px] left-1/2 -translate-x-1/2 flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-[10px] font-extrabold whitespace-nowrap shadow-xl border border-slate-700/60 transition-all cursor-pointer z-40">
-              <svg class="w-3.5 h-3.5 text-lime-400 stroke-current" fill="none" stroke-width="3" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              <span>Ghi nhận trận đấu</span>
-            </button>
-          </transition>
-
-          <button @click="showFabMenu = !showFabMenu"
-            class="w-11 h-11 rounded-full bg-gradient-to-tr from-lime-400 to-emerald-500 text-slate-950 flex items-center justify-center shadow-lg shadow-lime-500/20 hover:scale-110 active:scale-95 transition-all focus:outline-none cursor-pointer relative z-40">
-            <!-- Plus Icon -->
-            <svg class="w-5 h-5 stroke-current transition-transform"
-              :class="showFabMenu ? 'rotate-45' : ''" fill="none" stroke-width="3.5" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-          </button>
-        </div>
-
-        <!-- Backdrop to dismiss the FAB popover -->
-        <div v-if="showFabMenu" @click="showFabMenu = false" class="fixed inset-0 z-30"></div>
+        <button @click="showFabMenu ? (showFabMenu = false) : openFabMenu()"
+          class="w-11 h-11 rounded-full bg-gradient-to-tr from-lime-400 to-emerald-500 text-slate-950 flex items-center justify-center shadow-lg shadow-lime-500/20 -translate-y-4 hover:scale-110 active:scale-95 transition-all focus:outline-none cursor-pointer relative z-40">
+          <!-- Plus Icon -->
+          <svg class="w-5 h-5 stroke-current transition-transform"
+            :class="showFabMenu ? 'rotate-45' : ''" fill="none" stroke-width="3.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+        </button>
 
         <!-- Match History Tab trigger -->
         <button @click="currentTab = 'matches'" :class="[
@@ -544,6 +550,101 @@ const svgAreaPath = computed(() => {
           <span class="text-[9px] font-extrabold uppercase tracking-wider">Trận đấu</span>
         </button>
       </nav>
+
+      <!-- MODAL: QUICK ADD SHEET (near full-screen, opened from the FAB) -->
+      <transition enter-active-class="transition duration-300 ease-out" enter-from-class="transform translate-y-full"
+        enter-to-class="transform translate-y-0" leave-active-class="transition duration-200 ease-in"
+        leave-from-class="transform translate-y-0" leave-to-class="transform translate-y-full">
+        <div v-if="showFabMenu"
+          class="absolute inset-x-0 bottom-0 max-h-[92%] bg-slate-900 border-t border-slate-800 rounded-t-3xl shadow-2xl z-40 overflow-y-auto flex flex-col pb-6">
+          <!-- Drag Handle -->
+          <div class="w-12 h-1.5 bg-slate-700 rounded-full mx-auto my-3 shrink-0"></div>
+
+          <!-- Sheet Header -->
+          <div class="px-5 pb-3 flex justify-between items-center shrink-0">
+            <h2 class="text-sm font-extrabold text-slate-100">Ghi nhận nhanh</h2>
+            <button @click="showFabMenu = false"
+              class="p-1 rounded-full bg-slate-800 text-slate-400 hover:text-slate-200 cursor-pointer">
+              <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Content -->
+          <div class="flex-1 px-5 space-y-5">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1.5">Ngày diễn
+                  ra</label>
+                <input v-model="matchDate" type="date"
+                  class="w-full bg-slate-950 text-xs text-slate-200 px-3 py-2.5 rounded-xl border border-slate-800 focus:outline-none focus:border-lime-500/50" />
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1.5">Mùa
+                  giải</label>
+                <select v-model="matchSeasonId"
+                  class="w-full bg-slate-950 border border-slate-800 text-xs font-semibold text-slate-200 px-3 py-2.5 rounded-xl appearance-none focus:outline-none focus:border-lime-500/50">
+                  <option :value="null">Không có mùa giải</option>
+                  <option v-for="season in seasons" :key="season._id" :value="season._id">
+                    {{ season.name }}
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <button @click="openAddMatchModal"
+              class="w-full flex items-center justify-center space-x-1.5 px-3 py-3 rounded-xl bg-gradient-to-r from-lime-400 to-emerald-500 text-slate-950 text-xs font-extrabold transition-all shadow-lg shadow-lime-500/10 active:scale-[0.98] cursor-pointer">
+              <svg class="w-4 h-4 stroke-current" fill="none" stroke-width="3" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              <span>Ghi nhận trận đấu</span>
+            </button>
+
+            <!-- List 1: per-player stats for the selected day -->
+            <div class="pt-4 border-t border-slate-800">
+              <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Thống kê buổi
+                ({{ formatDate(matchDate) }})</p>
+              <div class="space-y-1.5">
+                <div v-for="entry in matchDayEntries" :key="entry.player_id"
+                  class="flex items-center justify-between text-xs px-3 py-2 rounded-xl"
+                  :class="entry.games_played > 0 ? 'bg-slate-950' : 'opacity-50 bg-slate-950/50'">
+                  <span class="font-bold text-slate-200 truncate max-w-[160px]">{{ entry.name }}</span>
+                  <span class="font-mono text-slate-400 shrink-0">
+                    {{ entry.games_played }} trận ·
+                    <span class="text-emerald-400">{{ entry.wins }}T</span> ·
+                    <span class="text-red-400">{{ entry.losses }}B</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- List 2: match history for the selected day -->
+            <div class="pt-4 border-t border-slate-800">
+              <p class="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-2">Lịch sử trận đấu
+                hôm nay</p>
+              <div v-if="matchDayHistory.length === 0" class="text-xs text-slate-500 px-1">
+                Chưa có trận nào được ghi nhận.
+              </div>
+              <div v-else class="space-y-1.5">
+                <div v-for="m in matchDayHistory" :key="m.id"
+                  class="text-xs px-3 py-2.5 rounded-xl bg-slate-950 flex items-center justify-between">
+                  <span class="truncate max-w-[220px]">
+                    <span class="text-emerald-400 font-bold">{{ getMatchWinnerNames(m) }}</span>
+                    <span class="text-slate-500"> thắng </span>
+                    <span class="text-red-400 font-bold">{{ getMatchLoserNames(m) }}</span>
+                  </span>
+                  <span class="font-mono text-slate-500 shrink-0 ml-1">{{ m.score }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </transition>
+
+      <!-- Backdrop for Quick Add Sheet -->
+      <div v-if="showFabMenu" @click="showFabMenu = false"
+        class="absolute inset-0 bg-slate-950/80 backdrop-blur-xs z-35"></div>
 
       <!-- MODAL 1: ADD MATCH SHEET (Slide up bottom sheet panel) -->
       <transition enter-active-class="transition duration-300 ease-out" enter-from-class="transform translate-y-full"
@@ -618,19 +719,27 @@ const svgAreaPath = computed(() => {
                       <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                     </svg>
                   </button>
+
+                  <!-- Guest chips already added -->
+                  <span v-for="gid in winnerIds.filter((id) => isGuestId(id))" :key="gid"
+                    class="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold bg-emerald-500/15 border-emerald-500/40 text-emerald-300">
+                    <span
+                      class="w-4 h-4 rounded-full bg-slate-600 shrink-0 flex items-center justify-center text-[7px] font-black text-white">V</span>
+                    <span>Vãng lai</span>
+                    <button @click="removeWinner(gid)" class="text-emerald-400/70 hover:text-emerald-200 cursor-pointer">✕</button>
+                  </span>
+
+                  <!-- Add guest button -->
+                  <button v-if="winnerIds.length < 2" @click="addGuestWinner"
+                    class="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl border border-dashed border-slate-700 text-[10px] font-bold text-slate-400 hover:border-lime-500/50 hover:text-lime-400 transition-all cursor-pointer">
+                    <svg class="w-3 h-3 stroke-current" fill="none" stroke-width="3" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    <span>Vãng lai</span>
+                  </button>
                 </div>
                 <p v-if="winnerIds.length > 0" class="mt-1.5 text-[9px] text-emerald-400 font-semibold">
-                  ✓ Đã chọn:
-                  {{
-                    winnerIds
-                      .map((id) =>
-                        players
-                          .find((p) => p._id === id)
-                          ?.name.split(' ')
-                          .pop(),
-                      )
-                      .join(' & ')
-                  }}
+                  ✓ Đã chọn: {{ winnerIds.map((id) => getParticipantName(id)).join(' & ') }}
                 </p>
               </div>
 
@@ -670,19 +779,27 @@ const svgAreaPath = computed(() => {
                       <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z" />
                     </svg>
                   </button>
+
+                  <!-- Guest chips already added -->
+                  <span v-for="gid in loserIds.filter((id) => isGuestId(id))" :key="gid"
+                    class="flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold bg-red-500/15 border-red-500/40 text-red-300">
+                    <span
+                      class="w-4 h-4 rounded-full bg-slate-600 shrink-0 flex items-center justify-center text-[7px] font-black text-white">V</span>
+                    <span>Vãng lai</span>
+                    <button @click="removeLoser(gid)" class="text-red-400/70 hover:text-red-200 cursor-pointer">✕</button>
+                  </span>
+
+                  <!-- Add guest button -->
+                  <button v-if="loserIds.length < 2" @click="addGuestLoser"
+                    class="flex items-center space-x-1 px-2.5 py-1.5 rounded-xl border border-dashed border-slate-700 text-[10px] font-bold text-slate-400 hover:border-red-500/50 hover:text-red-400 transition-all cursor-pointer">
+                    <svg class="w-3 h-3 stroke-current" fill="none" stroke-width="3" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    <span>Vãng lai</span>
+                  </button>
                 </div>
                 <p v-if="loserIds.length > 0" class="mt-1.5 text-[9px] text-red-400 font-semibold">
-                  ✓ Đã chọn:
-                  {{
-                    loserIds
-                      .map((id) =>
-                        players
-                          .find((p) => p._id === id)
-                          ?.name.split(' ')
-                          .pop(),
-                      )
-                      .join(' & ')
-                  }}
+                  ✓ Đã chọn: {{ loserIds.map((id) => getParticipantName(id)).join(' & ') }}
                 </p>
               </div>
 

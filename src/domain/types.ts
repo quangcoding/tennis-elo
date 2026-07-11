@@ -22,6 +22,8 @@ export interface MatchRecord {
   score: string
   elo_change: number
   played_at: string
+  // Many matches belong to one BatchSession (the day's session), if any.
+  session_id: string | null
   // Legacy compat fields (single string)
   winner_id?: string
   winner_name?: string

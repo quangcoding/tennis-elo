@@ -1,4 +1,4 @@
-import { ELO_PER_MATCH, MIN_SCORE, OFFLINE_PENALTY } from '@/domain/constants'
+import { ELO_PER_MATCH, GUEST_NAME, MIN_SCORE, OFFLINE_PENALTY, isGuestId } from '@/domain/constants'
 import type {
   BatchPlayerEntry,
   BatchSession,
@@ -27,7 +27,12 @@ export interface BatchComputation {
 /**
  * Pure batch-session calculation. Given current players and the form entries,
  * returns the resulting session record plus updated (cloned) player states.
- * Callers are responsible for committing these to reactive state / storage.
+ *
+ * Non-offline entries are a *snapshot only* — their Elo/stats were already
+ * applied individually when each match was recorded (see `computeMatchResult`),
+ * so this must not re-apply them here (that would double-count). Only the
+ * `offline` flat penalty is actually applied by this function, since offline
+ * players have no match records of their own.
  */
 export const computeBatchSession = (
   players: Player[],
@@ -49,22 +54,16 @@ export const computeBatchSession = (
     const player: Player = { ...source, history: [...source.history] }
 
     let eloGain: number
-    let newScore: number
 
     if (entry.offline) {
       eloGain = -OFFLINE_PENALTY
-      newScore = round2(Math.max(MIN_SCORE, player.current_score + eloGain))
+      const newScore = round2(Math.max(MIN_SCORE, player.current_score + eloGain))
       player.current_score = newScore
       player.history.push(newScore)
     } else {
+      // Already applied per-match; just snapshot the resulting figures.
       const losses = entry.games_played - entry.wins
       eloGain = round2(entry.wins * ELO_PER_MATCH - losses * ELO_PER_MATCH)
-      newScore = round2(Math.max(MIN_SCORE, player.current_score + eloGain))
-      player.current_score = newScore
-      player.matches_played += entry.games_played
-      player.wins += entry.wins
-      player.losses += losses
-      player.history.push(newScore)
     }
 
     updatedPlayers.push(player)
@@ -75,7 +74,7 @@ export const computeBatchSession = (
       wins: entry.wins,
       offline: entry.offline,
       elo_gain: eloGain,
-      elo_after: newScore,
+      elo_after: player.current_score,
     })
   })
 
@@ -92,27 +91,23 @@ export const computeBatchSession = (
 }
 
 /**
- * Reverses a previously-committed batch session: undoes each player's Elo
- * gain/loss, match/win/loss counters, and the matching history snapshot.
+ * Reverses a previously-committed batch session. Only `offline` changes
+ * actually mutated a player (a flat penalty with no match record behind it) —
+ * non-offline changes are snapshots of matches that apply/reverse themselves
+ * independently, so they're left untouched here.
  * Pure — callers commit the returned player snapshots via `players.saveAll`.
  */
 export const reverseBatchSession = (players: Player[], session: BatchSession): Player[] => {
   const updatedPlayers: Player[] = []
 
   session.changes.forEach((change) => {
+    if (!change.offline) return
+
     const source = players.find((p) => p._id === change.member_id)
     if (!source) return
 
     const player: Player = { ...source, history: [...source.history] }
-
     player.current_score = round2(Math.max(MIN_SCORE, player.current_score - change.elo_gain))
-
-    if (!change.offline) {
-      const losses = change.games_played - change.wins
-      player.matches_played -= change.games_played
-      player.wins -= change.wins
-      player.losses -= losses
-    }
 
     const historyIdx = player.history.lastIndexOf(change.elo_after)
     if (historyIdx !== -1) player.history.splice(historyIdx, 1)
@@ -136,14 +131,19 @@ export interface MatchComputation {
  * Pure single-match calculation (singles or doubles). Winners gain
  * ELO_PER_MATCH, losers lose the same (floored at MIN_SCORE). Returns the
  * match record plus updated (cloned) player states; callers commit them.
+ *
+ * `winnerIds`/`loserIds` may include guest ("vãng lai") ids — walk-in players
+ * who aren't tracked members. Guests are kept in the match record (by name)
+ * for display, but never resolve to a `Player`, so they get no Elo/stat change.
  */
 export const computeMatchResult = (
   players: Player[],
   winnerIds: string[],
   loserIds: string[],
-  opts: { score: string; playedAt: string },
+  opts: { score: string; playedAt: string; sessionId: string | null },
 ): MatchComputation => {
   const clone = (p: Player): Player => ({ ...p, history: [...p.history] })
+  const resolveName = (id: string) => (isGuestId(id) ? GUEST_NAME : (players.find((p) => p._id === id)?.name ?? ''))
   const winnerPlayers = winnerIds
     .map((id) => players.find((p) => p._id === id))
     .filter((p): p is Player => Boolean(p))
@@ -178,13 +178,14 @@ export const computeMatchResult = (
 
   const match: MatchRecord = {
     id: 'm_' + Date.now(),
-    winner_ids: winnerPlayers.map((p) => p._id),
-    winner_names: winnerPlayers.map((p) => p.name),
-    loser_ids: loserPlayers.map((p) => p._id),
-    loser_names: loserPlayers.map((p) => p.name),
+    winner_ids: winnerIds,
+    winner_names: winnerIds.map(resolveName),
+    loser_ids: loserIds,
+    loser_names: loserIds.map(resolveName),
     score: opts.score,
     elo_change: eloChange,
     played_at: opts.playedAt,
+    session_id: opts.sessionId,
   }
 
   return {

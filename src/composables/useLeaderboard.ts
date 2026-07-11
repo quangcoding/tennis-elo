@@ -1,8 +1,9 @@
 import { computed, ref, watch } from 'vue'
-import { DEFAULT_PLAYERS, LOCAL_STORAGE_DRAFT_KEY } from '@/domain/constants'
+import { DEFAULT_PLAYERS, LOCAL_STORAGE_DRAFT_KEY, isGuestId } from '@/domain/constants'
 import type {
   BatchPlayerEntry,
   BatchSession,
+  BatchSessionChange,
   MatchRecord,
   Player,
   PlayerEloChange,
@@ -27,6 +28,7 @@ export function useLeaderboard() {
   const players = ref<Player[]>([])
   const matches = ref<MatchRecord[]>([])
   const seasons = ref<Season[]>([])
+  const sessions = ref<BatchSession[]>([])
   const currentTab = ref<LeaderboardTab>('leaderboard')
 
   // Filters & sorting
@@ -36,6 +38,7 @@ export function useLeaderboard() {
 
   // Single match recording state — ngày của buổi mà trận thuộc về
   const matchDate = ref(new Date().toISOString().slice(0, 10))
+  const matchSeasonId = ref<string | null>(null)
 
   // Batch update state
   const batchNote = ref('')
@@ -74,11 +77,44 @@ export function useLeaderboard() {
     }
   }
 
-  const init = async () => {
-    await Promise.all([loadPlayers(), loadMatches(), loadSeasons()])
+  const loadSessions = async () => {
+    try {
+      sessions.value = await store.sessions.getAll()
+    } catch (err) {
+      console.error('Không tải được danh sách buổi chơi.', err)
+      sessions.value = []
+    }
   }
 
+  const init = async () => {
+    await Promise.all([loadPlayers(), loadMatches(), loadSeasons(), loadSessions()])
+  }
+
+  const findActiveSeason = (date: string) =>
+    seasons.value.find((s) => s.start_date <= date && date <= s.end_date) ?? null
+
   // --- Single match recording ---
+  const openAddMatch = () => {
+    matchDate.value = new Date().toISOString().slice(0, 10)
+    matchSeasonId.value = findActiveSeason(matchDate.value)?._id ?? null
+  }
+
+  watch(matchDate, (date) => {
+    matchSeasonId.value = findActiveSeason(date)?._id ?? null
+  })
+
+  // Per-player tallies + full match list for the currently-selected day (quick-add popover).
+  const matchDayEntries = computed(() =>
+    players.value.map((p) => {
+      const { gamesPlayed, wins } = computeDayStats(p._id, matchDate.value)
+      return { player_id: p._id, name: p.name, games_played: gamesPlayed, wins, losses: gamesPlayed - wins }
+    }),
+  )
+
+  const matchDayHistory = computed(() =>
+    matches.value.filter((m) => m.played_at.slice(0, 10) === matchDate.value),
+  )
+
   const submitMatch = async (
     winnerIds: string[],
     loserIds: string[],
@@ -95,23 +131,35 @@ export function useLeaderboard() {
     if (winnerIds.some((id) => loserIds.includes(id))) {
       return { error: 'Cùng 1 người không thể vừa thắng vừa thua.' }
     }
-    const allFound = [...winnerIds, ...loserIds].every((id) =>
-      players.value.some((p) => p._id === id),
+    const allFound = [...winnerIds, ...loserIds].every(
+      (id) => isGuestId(id) || players.value.some((p) => p._id === id),
     )
     if (!allFound) {
       return { error: 'Không tìm thấy thông tin tay vợt.' }
     }
 
     // Nếu chọn ngày hôm nay: giữ giờ thực; ngày khác: dùng đầu ngày đó
+    const date = matchDate.value
     const today = new Date().toISOString().slice(0, 10)
-    const playedAt =
-      matchDate.value === today ? new Date().toISOString() : new Date(matchDate.value).toISOString()
+    const playedAt = date === today ? new Date().toISOString() : new Date(date).toISOString()
+
+    // Find (or start) that day's session so the match can link to it.
+    const existingSession = sessions.value.find((s) => s.date.slice(0, 10) === date)
+    const isNewSession = !existingSession
+    const session: BatchSession = existingSession ?? {
+      _id: 'session_' + Date.now(),
+      date: new Date(date).toISOString(),
+      quarter: getQuarter(date),
+      note: `Buổi chơi ${new Date(date).toLocaleDateString('vi-VN')}`,
+      changes: [],
+      season_id: matchSeasonId.value,
+    }
 
     const { match, updatedPlayers, winners, losers, change } = computeMatchResult(
       players.value,
       winnerIds,
       loserIds,
-      { score: setScore, playedAt },
+      { score: setScore, playedAt, sessionId: session._id },
     )
 
     // Commit updated snapshots into reactive state.
@@ -121,9 +169,37 @@ export function useLeaderboard() {
     })
     matches.value.unshift(match)
 
+    // Keep the session's changes summary in sync for the players just involved.
+    ;[...winnerIds, ...loserIds].forEach((playerId) => {
+      const player = players.value.find((p) => p._id === playerId)
+      if (!player) return
+      const { gamesPlayed, wins } = computeDayStats(playerId, date)
+      const entry: BatchPlayerEntry = { player_id: playerId, games_played: gamesPlayed, wins, offline: false }
+      const sessionChange: BatchSessionChange = {
+        member_id: playerId,
+        name: player.name,
+        games_played: gamesPlayed,
+        wins,
+        offline: false,
+        elo_gain: previewBatchElo(entry),
+        elo_after: player.current_score,
+      }
+      const idx = session.changes.findIndex((c) => c.member_id === playerId)
+      if (idx !== -1) session.changes[idx] = sessionChange
+      else session.changes.push(sessionChange)
+    })
+
+    if (isNewSession) sessions.value.push(session)
+    else {
+      const idx = sessions.value.findIndex((s) => s._id === session._id)
+      if (idx !== -1) sessions.value[idx] = session
+    }
+
     try {
       await store.matches.add(match)
       await store.players.saveAll(players.value)
+      if (isNewSession) await store.sessions.add(session)
+      else await store.sessions.update(session)
     } catch (err) {
       console.error('Lưu trận đấu thất bại.', err)
       return { error: 'Lưu dữ liệu thất bại, vui lòng thử lại.' }
@@ -133,9 +209,6 @@ export function useLeaderboard() {
   }
 
   // --- Batch update ---
-  const findActiveSeason = (date: string) =>
-    seasons.value.find((s) => s.start_date <= date && date <= s.end_date) ?? null
-
   /** Tallies a player's actual matches for a given day from recorded MatchRecords. */
   const computeDayStats = (playerId: string, date: string) => {
     let gamesPlayed = 0
@@ -237,11 +310,16 @@ export function useLeaderboard() {
       return
     }
 
-    const { session, updatedPlayers } = computeBatchSession(players.value, batchEntries.value, {
-      date: batchDate.value,
-      note: batchNote.value,
-      seasonId: batchSeasonId.value,
-    })
+    const { session: computedSession, updatedPlayers } = computeBatchSession(
+      players.value,
+      batchEntries.value,
+      { date: batchDate.value, note: batchNote.value, seasonId: batchSeasonId.value },
+    )
+
+    // If a session already exists for this date (e.g. auto-created while recording
+    // individual matches), update it in place instead of creating a duplicate.
+    const existing = sessions.value.find((s) => s.date.slice(0, 10) === batchDate.value)
+    const session: BatchSession = existing ? { ...computedSession, _id: existing._id } : computedSession
 
     // Commit updated snapshots into reactive state.
     updatedPlayers.forEach((updated) => {
@@ -250,13 +328,18 @@ export function useLeaderboard() {
     })
 
     try {
-      await store.sessions.add(session)
+      if (existing) await store.sessions.update(session)
+      else await store.sessions.add(session)
       await store.players.saveAll(players.value)
     } catch (err) {
       console.error('Lưu buổi chơi thất bại.', err)
       batchError.value = 'Lưu dữ liệu thất bại, vui lòng thử lại.'
       return
     }
+
+    const idx = sessions.value.findIndex((s) => s._id === session._id)
+    if (idx !== -1) sessions.value[idx] = session
+    else sessions.value.push(session)
 
     batchSuccessData.value = session
   }
@@ -336,11 +419,13 @@ export function useLeaderboard() {
     players,
     matches,
     seasons,
+    sessions,
     currentTab,
     searchQuery,
     filterGroup,
     sortBy,
     matchDate,
+    matchSeasonId,
     batchNote,
     batchDate,
     batchEntries,
@@ -349,6 +434,7 @@ export function useLeaderboard() {
     batchError,
     // lifecycle / actions
     init,
+    openAddMatch,
     openBatch,
     resetBatchResult,
     resetToDefault,
@@ -362,6 +448,8 @@ export function useLeaderboard() {
     statsHero,
     filteredPlayers,
     matchesByDay,
+    matchDayEntries,
+    matchDayHistory,
     getPlayerRank,
   }
 }

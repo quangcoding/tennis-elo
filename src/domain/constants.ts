@@ -12,6 +12,13 @@ export const OFFLINE_PENALTY = 0.25 // Phạt offline trực tiếp
 export const ELO_PER_MATCH = 0.25 // Điểm cộng/trừ mỗi trận
 export const MIN_SCORE = 5.0 // Sàn điểm Elo
 
+// --- Guest ("vãng lai") participants: not tracked players, no Elo/stat effect ---
+export const GUEST_ID_PREFIX = 'guest_'
+export const GUEST_NAME = 'Vãng lai'
+export const isGuestId = (id: string): boolean => id.startsWith(GUEST_ID_PREFIX)
+export const makeGuestId = (): string =>
+  `${GUEST_ID_PREFIX}${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+
 const makeDefaultPlayer = (id: string, name: string): Player => ({
   _id: id,
   name,
