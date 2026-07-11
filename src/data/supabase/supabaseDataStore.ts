@@ -131,6 +131,11 @@ const matches: MatchRepository = {
     const { error } = await supabase.from('matches').insert([match])
     if (error) throw error
   },
+
+  async remove(id) {
+    const { error } = await supabase.from('matches').delete().eq('id', id)
+    if (error) throw error
+  },
 }
 
 export const createSupabaseDataStore = (): DataStore => ({ players, sessions, matches, seasons })

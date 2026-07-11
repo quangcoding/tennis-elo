@@ -27,6 +27,7 @@ const {
   resetToDefault: resetStore,
   submitMatch: recordMatch,
   submitMatchDayUpdate,
+  cancelMatch,
   statsHero,
   filteredPlayers,
   matchesByDay,
@@ -162,6 +163,15 @@ const handleConfirmDayUpdate = async () => {
     return
   }
   if (success) showToast('Đã cập nhật Elo thành công!')
+}
+
+const handleCancelMatch = async (matchId: string) => {
+  const { success, error } = await cancelMatch(matchId)
+  if (error) {
+    showToast(error, 'error')
+    return
+  }
+  if (success) showToast('Đã hủy bỏ trận đấu!')
 }
 
 // --- Player detail view helpers (pure, based on activePlayer/matches) ---
@@ -666,12 +676,21 @@ const svgAreaPath = computed(() => {
               <div v-else class="space-y-1.5">
                 <div v-for="m in matchDayHistory" :key="m.id"
                   class="text-xs px-3 py-2.5 rounded-xl bg-slate-950 flex items-center justify-between">
-                  <span class="truncate max-w-[220px]">
+                  <span class="truncate max-w-[180px]">
                     <span class="text-emerald-400 font-bold">{{ getMatchWinnerNames(m) }}</span>
                     <span class="text-slate-500"> thắng </span>
                     <span class="text-red-400 font-bold">{{ getMatchLoserNames(m) }}</span>
                   </span>
-                  <span class="font-mono text-slate-500 shrink-0 ml-1">{{ m.score }}</span>
+                  <span class="flex items-center space-x-2 shrink-0">
+                    <span class="font-mono text-slate-500">{{ m.score }}</span>
+                    <button @click="handleCancelMatch(m.id)"
+                      class="p-1 rounded-md bg-slate-900 hover:bg-red-900/40 text-slate-500 hover:text-red-400 transition-colors border border-slate-800 cursor-pointer"
+                      title="Hủy bỏ trận đấu">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </span>
                 </div>
               </div>
             </div>

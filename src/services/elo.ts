@@ -196,3 +196,42 @@ export const computeMatchResult = (
     change: eloChange,
   }
 }
+
+/**
+ * Reverses a previously-recorded single match: undoes the Elo/stat change for
+ * each real player involved (guests never had one to begin with) and removes
+ * the matching history snapshot. Pure — callers commit the returned player
+ * snapshots via `players.saveAll` and remove the match record themselves.
+ */
+export const reverseMatchResult = (players: Player[], match: MatchRecord): Player[] => {
+  const clone = (p: Player): Player => ({ ...p, history: [...p.history] })
+  const updatedPlayers: Player[] = []
+
+  match.winner_ids.forEach((id) => {
+    const source = players.find((p) => p._id === id)
+    if (!source) return
+    const player = clone(source)
+    const eloAfter = player.current_score
+    player.current_score = round2(player.current_score - match.elo_change)
+    player.matches_played -= 1
+    player.wins -= 1
+    const historyIdx = player.history.lastIndexOf(eloAfter)
+    if (historyIdx !== -1) player.history.splice(historyIdx, 1)
+    updatedPlayers.push(player)
+  })
+
+  match.loser_ids.forEach((id) => {
+    const source = players.find((p) => p._id === id)
+    if (!source) return
+    const player = clone(source)
+    const eloAfter = player.current_score
+    player.current_score = round2(player.current_score + match.elo_change)
+    player.matches_played -= 1
+    player.losses -= 1
+    const historyIdx = player.history.lastIndexOf(eloAfter)
+    if (historyIdx !== -1) player.history.splice(historyIdx, 1)
+    updatedPlayers.push(player)
+  })
+
+  return updatedPlayers
+}

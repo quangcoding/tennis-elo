@@ -130,6 +130,14 @@ const matches: MatchRepository = {
     list.unshift(match)
     write(LOCAL_STORAGE_MATCHES_KEY, list)
   },
+
+  async remove(id) {
+    const list = read<MatchRecord[]>(LOCAL_STORAGE_MATCHES_KEY, [])
+    write(
+      LOCAL_STORAGE_MATCHES_KEY,
+      list.filter((m) => m.id !== id),
+    )
+  },
 }
 
 export const createLocalDataStore = (): DataStore => ({ players, sessions, matches, seasons })

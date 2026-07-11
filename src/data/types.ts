@@ -24,6 +24,7 @@ export interface SessionRepository {
 export interface MatchRepository {
   getAll(): Promise<MatchRecord[]>
   add(match: MatchRecord): Promise<void>
+  remove(id: string): Promise<void>
 }
 
 export interface SeasonRepository {

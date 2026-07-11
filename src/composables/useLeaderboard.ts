@@ -9,7 +9,12 @@ import type {
   PlayerEloChange,
   Season,
 } from '@/domain/types'
-import { computeBatchSession, computeMatchResult, previewBatchElo } from '@/services/elo'
+import {
+  computeBatchSession,
+  computeMatchResult,
+  previewBatchElo,
+  reverseMatchResult,
+} from '@/services/elo'
 import { formatDate, getQuarter } from '@/services/format'
 import { useDataStore } from '@/data/provider'
 
@@ -287,6 +292,81 @@ export function useLeaderboard() {
     return { success: { winners, losers, change } }
   }
 
+  /**
+   * Cancels a previously-recorded match: reverses its Elo/stat effect on the
+   * real players involved, removes the match, and keeps its linked session's
+   * `changes` in sync (removing the session entirely if it's now empty).
+   */
+  const cancelMatch = async (matchId: string): Promise<{ success?: boolean; error?: string }> => {
+    const match = matches.value.find((m) => m.id === matchId)
+    if (!match) return { error: 'Không tìm thấy trận đấu.' }
+
+    if (!confirm('Bạn có chắc muốn hủy bỏ trận đấu này? Điểm Elo đã cộng/trừ sẽ được hoàn tác.')) {
+      return {}
+    }
+
+    const reversedPlayers = reverseMatchResult(players.value, match)
+    reversedPlayers.forEach((updated) => {
+      const idx = players.value.findIndex((p) => p._id === updated._id)
+      if (idx !== -1) players.value[idx] = updated
+    })
+
+    matches.value = matches.value.filter((m) => m.id !== matchId)
+
+    const date = match.played_at.slice(0, 10)
+    const session = match.session_id ? sessions.value.find((s) => s._id === match.session_id) : undefined
+
+    if (session) {
+      ;[...match.winner_ids, ...match.loser_ids].forEach((playerId) => {
+        if (isGuestId(playerId)) return
+        const player = players.value.find((p) => p._id === playerId)
+        if (!player) return
+        const { gamesPlayed, wins } = computeDayStats(playerId, date)
+        const idx = session.changes.findIndex((c) => c.member_id === playerId)
+        if (gamesPlayed === 0) {
+          if (idx !== -1) session.changes.splice(idx, 1)
+        } else {
+          const entry: BatchPlayerEntry = { player_id: playerId, games_played: gamesPlayed, wins, offline: false }
+          const sessionChange: BatchSessionChange = {
+            member_id: playerId,
+            name: player.name,
+            games_played: gamesPlayed,
+            wins,
+            offline: false,
+            elo_gain: previewBatchElo(entry),
+            elo_after: player.current_score,
+          }
+          if (idx !== -1) session.changes[idx] = sessionChange
+          else session.changes.push(sessionChange)
+        }
+      })
+    }
+
+    const sessionNowEmpty = session ? session.changes.length === 0 : false
+
+    try {
+      await store.matches.remove(matchId)
+      await store.players.saveAll(players.value)
+      if (session) {
+        if (sessionNowEmpty) await store.sessions.remove(session._id)
+        else await store.sessions.update(session)
+      }
+    } catch (err) {
+      console.error('Hủy trận đấu thất bại.', err)
+      return { error: 'Hủy trận đấu thất bại, vui lòng thử lại.' }
+    }
+
+    if (session) {
+      if (sessionNowEmpty) sessions.value = sessions.value.filter((s) => s._id !== session._id)
+      else {
+        const idx = sessions.value.findIndex((s) => s._id === session._id)
+        if (idx !== -1) sessions.value[idx] = session
+      }
+    }
+
+    return { success: true }
+  }
+
   // --- Batch update ---
   /** Tallies a player's actual matches for a given day from recorded MatchRecords. */
   const computeDayStats = (playerId: string, date: string) => {
@@ -502,6 +582,7 @@ export function useLeaderboard() {
     toggleBatchOffline,
     submitBatchUpdate,
     submitMatch,
+    cancelMatch,
     submitMatchDayUpdate,
     // helpers
     getBatchEloPreview,
