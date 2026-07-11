@@ -77,6 +77,7 @@ const sessions: SessionRepository = {
         quarter: session.quarter,
         note: session.note,
         season_id: session.season_id,
+        changes: session.changes,
       })
       .eq('_id', session._id)
     if (error) throw error

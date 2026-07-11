@@ -39,6 +39,8 @@ export function useLeaderboard() {
   // Single match recording state — ngày của buổi mà trận thuộc về
   const matchDate = ref(new Date().toISOString().slice(0, 10))
   const matchSeasonId = ref<string | null>(null)
+  const matchUpdateLoading = ref(false)
+  const matchUpdateError = ref('')
 
   // Batch update state
   const batchNote = ref('')
@@ -93,10 +95,54 @@ export function useLeaderboard() {
   const findActiveSeason = (date: string) =>
     seasons.value.find((s) => s.start_date <= date && date <= s.end_date) ?? null
 
+  /**
+   * Builds/updates the official session record for a day from a full set of
+   * per-player entries, upserting whichever session already exists for that
+   * date (e.g. auto-created while recording individual matches) instead of
+   * creating a duplicate. Persists both the session and any player changes
+   * (only offline entries actually change a player — see `computeBatchSession`).
+   */
+  const commitDaySession = async (
+    date: string,
+    note: string | undefined,
+    seasonId: string | null,
+    entries: BatchPlayerEntry[],
+  ): Promise<{ session?: BatchSession; error?: string }> => {
+    const existing = sessions.value.find((s) => s.date.slice(0, 10) === date)
+
+    const { session: computedSession, updatedPlayers } = computeBatchSession(players.value, entries, {
+      date,
+      note: note ?? existing?.note,
+      seasonId,
+    })
+    const session: BatchSession = existing ? { ...computedSession, _id: existing._id } : computedSession
+
+    updatedPlayers.forEach((updated) => {
+      const idx = players.value.findIndex((p) => p._id === updated._id)
+      if (idx !== -1) players.value[idx] = updated
+    })
+
+    try {
+      if (existing) await store.sessions.update(session)
+      else await store.sessions.add(session)
+      await store.players.saveAll(players.value)
+    } catch (err) {
+      console.error('Lưu buổi chơi thất bại.', err)
+      return { error: 'Lưu dữ liệu thất bại, vui lòng thử lại.' }
+    }
+
+    const idx = sessions.value.findIndex((s) => s._id === session._id)
+    if (idx !== -1) sessions.value[idx] = session
+    else sessions.value.push(session)
+
+    return { session }
+  }
+
   // --- Single match recording ---
   const openAddMatch = () => {
     matchDate.value = new Date().toISOString().slice(0, 10)
     matchSeasonId.value = findActiveSeason(matchDate.value)?._id ?? null
+    matchUpdateError.value = ''
   }
 
   watch(matchDate, (date) => {
@@ -114,6 +160,39 @@ export function useLeaderboard() {
   const matchDayHistory = computed(() =>
     matches.value.filter((m) => m.played_at.slice(0, 10) === matchDate.value),
   )
+
+  /** "Xác nhận cập nhật Elo" on the quick-add sheet: commits the day's session. */
+  const submitMatchDayUpdate = async (): Promise<{ success?: boolean; error?: string }> => {
+    matchUpdateError.value = ''
+
+    const entries: BatchPlayerEntry[] = matchDayEntries.value.map((e) => ({
+      player_id: e.player_id,
+      games_played: e.games_played,
+      wins: e.wins,
+      offline: false,
+    }))
+
+    if (!entries.some((e) => e.games_played > 0)) {
+      matchUpdateError.value = 'Chưa có trận nào được ghi nhận trong ngày này.'
+      return { error: matchUpdateError.value }
+    }
+
+    if (!confirm(`Bạn có chắc muốn cập nhật Elo cho ngày ${matchDate.value} không?`)) {
+      return {}
+    }
+
+    matchUpdateLoading.value = true
+    try {
+      const { error } = await commitDaySession(matchDate.value, undefined, matchSeasonId.value, entries)
+      if (error) {
+        matchUpdateError.value = error
+        return { error }
+      }
+      return { success: true }
+    } finally {
+      matchUpdateLoading.value = false
+    }
+  }
 
   const submitMatch = async (
     winnerIds: string[],
@@ -310,38 +389,18 @@ export function useLeaderboard() {
       return
     }
 
-    const { session: computedSession, updatedPlayers } = computeBatchSession(
-      players.value,
+    const { session, error } = await commitDaySession(
+      batchDate.value,
+      batchNote.value,
+      batchSeasonId.value,
       batchEntries.value,
-      { date: batchDate.value, note: batchNote.value, seasonId: batchSeasonId.value },
     )
-
-    // If a session already exists for this date (e.g. auto-created while recording
-    // individual matches), update it in place instead of creating a duplicate.
-    const existing = sessions.value.find((s) => s.date.slice(0, 10) === batchDate.value)
-    const session: BatchSession = existing ? { ...computedSession, _id: existing._id } : computedSession
-
-    // Commit updated snapshots into reactive state.
-    updatedPlayers.forEach((updated) => {
-      const idx = players.value.findIndex((p) => p._id === updated._id)
-      if (idx !== -1) players.value[idx] = updated
-    })
-
-    try {
-      if (existing) await store.sessions.update(session)
-      else await store.sessions.add(session)
-      await store.players.saveAll(players.value)
-    } catch (err) {
-      console.error('Lưu buổi chơi thất bại.', err)
-      batchError.value = 'Lưu dữ liệu thất bại, vui lòng thử lại.'
+    if (error) {
+      batchError.value = error
       return
     }
 
-    const idx = sessions.value.findIndex((s) => s._id === session._id)
-    if (idx !== -1) sessions.value[idx] = session
-    else sessions.value.push(session)
-
-    batchSuccessData.value = session
+    batchSuccessData.value = session!
   }
 
   const getBatchEloPreview = previewBatchElo
@@ -426,6 +485,8 @@ export function useLeaderboard() {
     sortBy,
     matchDate,
     matchSeasonId,
+    matchUpdateLoading,
+    matchUpdateError,
     batchNote,
     batchDate,
     batchEntries,
@@ -441,6 +502,7 @@ export function useLeaderboard() {
     toggleBatchOffline,
     submitBatchUpdate,
     submitMatch,
+    submitMatchDayUpdate,
     // helpers
     getBatchEloPreview,
     getQuarter,

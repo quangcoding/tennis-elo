@@ -20,10 +20,13 @@ const {
   sortBy,
   matchDate,
   matchSeasonId,
+  matchUpdateLoading,
+  matchUpdateError,
   init,
   openAddMatch,
   resetToDefault: resetStore,
   submitMatch: recordMatch,
+  submitMatchDayUpdate,
   statsHero,
   filteredPlayers,
   matchesByDay,
@@ -37,6 +40,17 @@ const showAddMatchModal = ref(false)
 const showDetailModal = ref(false)
 const showFabMenu = ref(false)
 const activePlayer = ref<Player | null>(null)
+
+// Toast feedback for quick actions (e.g. confirming the day's Elo update)
+const toastMessage = ref('')
+const toastType = ref<'success' | 'error'>('success')
+const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  toastMessage.value = message
+  toastType.value = type
+  setTimeout(() => {
+    toastMessage.value = ''
+  }, 3000)
+}
 
 // Add Match Form — supports singles & doubles (Elo calc still WIP)
 const winnerIds = ref<string[]>([])
@@ -139,6 +153,15 @@ const openFabMenu = () => {
 const openAddMatchModal = () => {
   showFabMenu.value = false
   showAddMatchModal.value = true
+}
+
+const handleConfirmDayUpdate = async () => {
+  const { success, error } = await submitMatchDayUpdate()
+  if (error) {
+    showToast(error, 'error')
+    return
+  }
+  if (success) showToast('Đã cập nhật Elo thành công!')
 }
 
 // --- Player detail view helpers (pure, based on activePlayer/matches) ---
@@ -571,6 +594,20 @@ const svgAreaPath = computed(() => {
             </button>
           </div>
 
+          <!-- Toast Notification -->
+          <transition enter-active-class="transition duration-300 ease-out"
+            enter-from-class="transform -translate-y-4 opacity-0" enter-to-class="transform translate-y-0 opacity-100"
+            leave-active-class="transition duration-200 ease-in" leave-from-class="transform translate-y-0 opacity-100"
+            leave-to-class="transform -translate-y-4 opacity-0">
+            <div v-if="toastMessage" class="mx-5 mb-3 p-3 rounded-xl border flex items-center space-x-2 text-xs font-semibold shrink-0"
+              :class="toastType === 'success'
+                ? 'bg-emerald-950/80 border-emerald-500/30 text-emerald-400'
+                : 'bg-red-950/80 border-red-500/30 text-red-400'
+                ">
+              <span>{{ toastMessage }}</span>
+            </div>
+          </transition>
+
           <!-- Content -->
           <div class="flex-1 px-5 space-y-5">
             <div class="grid grid-cols-2 gap-3">
@@ -638,6 +675,34 @@ const svgAreaPath = computed(() => {
                 </div>
               </div>
             </div>
+
+            <!-- Error Box -->
+            <div v-if="matchUpdateError"
+              class="bg-red-950/40 border border-red-500/20 text-red-400 text-xs font-semibold px-4 py-3 rounded-xl flex items-center space-x-2">
+              <svg class="w-4 h-4 shrink-0 fill-current" viewBox="0 0 24 24">
+                <path
+                  d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z" />
+              </svg>
+              <span>{{ matchUpdateError }}</span>
+            </div>
+
+            <!-- Confirm Elo update -->
+            <button @click="handleConfirmDayUpdate" :disabled="matchUpdateLoading" :class="[
+              'w-full flex items-center justify-center space-x-2 px-3 py-3.5 rounded-xl font-extrabold text-xs transition-all shadow-lg',
+              matchUpdateLoading
+                ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                : 'bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700/60 active:scale-[0.98] cursor-pointer',
+            ]">
+              <svg v-if="matchUpdateLoading" class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              <svg v-else class="w-4 h-4 stroke-current" fill="none" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+              <span>{{ matchUpdateLoading ? 'Đang cập nhật...' : 'Xác nhận cập nhật Elo' }}</span>
+            </button>
           </div>
         </div>
       </transition>
